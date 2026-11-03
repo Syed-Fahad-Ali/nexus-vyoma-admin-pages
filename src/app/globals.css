@@ -1,26 +1,32 @@
 @import "tailwindcss";
+@import "../../tokens.css";
 
-:root {
+/* White Theme / Light Mode Semantic System for Admin */
+:root,
+html.light,
+[data-theme="light"] {
   --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --foreground: #0a0f1e;
+  
+  /* Semantic Tokens for White Theme */
+  --theme-bg: #ffffff;
+  --theme-sidebar-bg: #f8f9fa;
+  --theme-border: #e5e7eb;
+  --theme-border-subtle: #f1f2f4;
+  --theme-text-primary: #0a0f1e;
+  --theme-text-secondary: #4b5563;
+  --theme-text-muted: #6b7280;
+  --theme-text-subtle: #9ca3af;
+  --theme-button-bg: #ffffff;
+  --theme-button-border: #e5e7eb;
+  --theme-button-hover: #f9fafb;
+  --theme-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --theme-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--nv-font-body, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
 }
+
