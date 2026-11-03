@@ -1,5 +1,7 @@
 import React from "react";
 import Image from "next/image";
+import wordmarkBlack from "../../../public/brand/nexus-wordmark-black.png";
+import markLight from "../../../public/brand/nexus-mark-light.png";
 
 interface NexusVyomaLogoProps {
   className?: string;
@@ -29,10 +31,11 @@ export default function NexusVyomaLogo({
         {showMark && (
           <div className="relative shrink-0 flex items-center justify-center">
             <Image
-              src="/brand/nexus-mark-light.png"
+              src={markLight}
               alt="Nexus Vyoma Mark"
               width={Math.round(markSize * 1.5)}
               height={markSize}
+              unoptimized
               className="h-auto object-contain drop-shadow-xs select-none"
               style={{ width: `${Math.round(markSize * 1.5)}px` }}
               priority
@@ -42,10 +45,11 @@ export default function NexusVyomaLogo({
         {showWordmark && (
           <div className="flex flex-col items-center gap-1">
             <Image
-              src="/brand/nexus-wordmark-black.png"
+              src={wordmarkBlack}
               alt="Nexus Vyoma"
               width={wordmarkWidth}
               height={wordmarkHeight}
+              unoptimized
               className="h-auto object-contain select-none"
               style={{ height: `${wordmarkHeight}px`, width: "auto" }}
               priority
@@ -66,10 +70,11 @@ export default function NexusVyomaLogo({
       {showMark && (
         <div className="relative shrink-0 flex items-center justify-center">
           <Image
-            src="/brand/nexus-mark-light.png"
+            src={markLight}
             alt="Nexus Vyoma Mark"
             width={Math.round(markSize * 1.5)}
             height={markSize}
+            unoptimized
             className="h-auto object-contain drop-shadow-xs select-none"
             style={{ width: `${Math.round(markSize * 1.5)}px` }}
             priority
@@ -79,10 +84,11 @@ export default function NexusVyomaLogo({
       {showWordmark && (
         <div className="flex items-center gap-2">
           <Image
-            src="/brand/nexus-wordmark-black.png"
+            src={wordmarkBlack}
             alt="Nexus Vyoma"
             width={wordmarkWidth}
             height={wordmarkHeight}
+            unoptimized
             className="h-auto object-contain select-none"
             style={{ height: `${wordmarkHeight}px`, width: "auto" }}
             priority
