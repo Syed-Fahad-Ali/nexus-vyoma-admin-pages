@@ -9,6 +9,7 @@ interface NexusVyomaLogoProps {
   wordmarkHeight?: number;
   showMark?: boolean;
   showWordmark?: boolean;
+  fullWidth?: boolean;
   badge?: string;
   orientation?: "horizontal" | "vertical";
 }
@@ -19,11 +20,31 @@ export default function NexusVyomaLogo({
   wordmarkHeight = 24,
   showMark = false,
   showWordmark = true,
+  fullWidth = false,
   badge,
   orientation = "horizontal",
 }: NexusVyomaLogoProps) {
   // 1024 x 341 is ~3:1 aspect ratio
   const wordmarkWidth = Math.round(wordmarkHeight * 3.003);
+
+  if (fullWidth && !showMark) {
+    return (
+      <div className={`w-full flex items-center justify-center ${className}`}>
+        <Image
+          src={wordmarkBlack}
+          alt="Nexus Vyoma"
+          unoptimized
+          priority
+          className="w-full h-auto max-h-[50px] object-contain select-none"
+        />
+        {badge && (
+          <span className="text-[10px] tracking-[0.2em] font-semibold text-[#FF6A00] uppercase bg-[#FF6A00]/10 px-1.5 py-0.5 rounded ml-2">
+            {badge}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   if (orientation === "vertical") {
     return (

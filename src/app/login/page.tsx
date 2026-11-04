@@ -47,9 +47,7 @@ export default function LoginPage() {
           <p className="text-sm leading-relaxed text-[#6B7280]">
             Admin Page for Nexus Vyoma.
             <br />
-            Streamline planning, coordination,
-            <br />
-            and volunteering.
+            Coordination,Monitoring and volunteering.
             </p>
           <div className="mt-4 pt-4 border-t border-[#E5E7EB] flex items-center gap-2 text-xs text-[#9CA3AF]">
             <span>10 · 11 · 12 NOV 2026</span>
