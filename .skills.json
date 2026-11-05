@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "agent-toolkit-mui": {
+      "version": "1.0.0",
+      "installedAt": "2026-11-05T11:40:17.830Z",
+      "platform": "gemini",
+      "contentHash": "40a5d70f0d14f4a8d01647ed134f07352befc6494ae765b7f1e70bb500580513"
+    }
+  }
+}
