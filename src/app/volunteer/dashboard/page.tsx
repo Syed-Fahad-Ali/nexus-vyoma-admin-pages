@@ -1,10 +1,11 @@
 import React from "react";
+import VolunteerDashboardView from "@/components/volunteer/dashboard/VolunteerDashboardView";
+
+export const metadata = {
+  title: "Volunteer Dashboard — Nexus Vyoma",
+  description: "Mobile-first volunteer operations, event-scoped check-in velocity, assignments, and participant roster.",
+};
 
 export default function DashboardPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight text-[#0A0F1E]">Dashboard</h1>
-    </div>
-  );
+  return <VolunteerDashboardView />;
 }
-

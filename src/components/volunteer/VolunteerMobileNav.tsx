@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import VolunteerSidebar from "@/components/volunteer/VolunteerSidebar";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
+import { useVolunteerEvent } from "./context/VolunteerEventContext";
 
 export default function VolunteerMobileNav() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const [prevPathname, setPrevPathname] = useState(pathname);
+  const { selectedEvent, participationType } = useVolunteerEvent();
 
   // Close sheet on navigation when pathname changes
   if (prevPathname !== pathname) {
@@ -35,7 +37,13 @@ export default function VolunteerMobileNav() {
         <SheetContent side="left" hideClose className="w-[300px] sm:w-[320px] p-0 border-r border-[#E5E7EB] bg-[#F8F9FA]">
           <SheetTitle className="sr-only">Volunteer Portal Navigation</SheetTitle>
           <div className="h-full w-full">
-            <VolunteerSidebar isMobile={true} onToggle={() => setOpen(false)} />
+            <VolunteerSidebar
+              eventId={selectedEvent ? selectedEvent.code : "asdd87eqwejh2k13123kmnbk"}
+              eventName={selectedEvent ? selectedEvent.name : "EVENT_NAME"}
+              participationType={participationType}
+              isMobile={true}
+              onToggle={() => setOpen(false)}
+            />
           </div>
         </SheetContent>
       </Sheet>

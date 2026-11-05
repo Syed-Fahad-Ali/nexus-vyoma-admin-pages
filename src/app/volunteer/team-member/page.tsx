@@ -1,10 +1,11 @@
 import React from "react";
+import TeamMembersView from "@/components/volunteer/team/TeamMembersView";
+
+export const metadata = {
+  title: "Team Members — Volunteer Portal | Nexus Vyoma",
+  description: "Festival volunteer crew roster, assignments, and duty status.",
+};
 
 export default function TeamMemberPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight text-[#0A0F1E]">Team members</h1>
-    </div>
-  );
+  return <TeamMembersView />;
 }
-

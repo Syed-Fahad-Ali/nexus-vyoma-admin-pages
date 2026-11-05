@@ -96,9 +96,6 @@ export default function ScanMembersView() {
             <span className="text-2xl sm:text-3xl font-extrabold text-[#0A0F1E] tracking-tight">
               {totalEventMembers.toLocaleString()}
             </span>
-            <p className="text-[11px] text-[#6B7280] mt-0.5">
-              Total registered attendees
-            </p>
           </div>
         </div>
 
@@ -114,9 +111,6 @@ export default function ScanMembersView() {
             <span className="text-2xl sm:text-3xl font-extrabold text-[#0A0F1E] tracking-tight">
               {totalScannedCount.toLocaleString()}
             </span>
-            <p className="text-[11px] text-[#16A34A] font-medium mt-0.5">
-              {((totalScannedCount / totalEventMembers) * 100).toFixed(1)}% verified
-            </p>
           </div>
         </div>
 
@@ -132,9 +126,6 @@ export default function ScanMembersView() {
             <span className="text-2xl sm:text-3xl font-extrabold text-[#0A0F1E] tracking-tight">
               {totalVolunteers}
             </span>
-            <p className="text-[11px] text-[#6B7280] mt-0.5">
-              Active scanners on duty
-            </p>
           </div>
         </div>
       </div>

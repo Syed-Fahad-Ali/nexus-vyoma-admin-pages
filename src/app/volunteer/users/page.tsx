@@ -1,10 +1,11 @@
 import React from "react";
+import UsersListView from "@/components/volunteer/users/UsersListView";
+
+export const metadata = {
+  title: "Users — Volunteer Portal | Nexus Vyoma",
+  description: "Attendee registration directory, phone contacts, enrollment history, and payment statuses.",
+};
 
 export default function UsersPage() {
-  return (
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight text-[#0A0F1E]">Users</h1>
-    </div>
-  );
+  return <UsersListView />;
 }
-

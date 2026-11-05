@@ -15,6 +15,7 @@ interface UserProfile {
 interface VolunteerSidebarProps {
   eventId?: string;
   eventName?: string;
+  participationType?: "Solo" | "Squad";
   user?: UserProfile;
   isMobile?: boolean;
   onToggle?: () => void;
@@ -34,13 +35,25 @@ const navItems = [
     ),
   },
   {
-    label: "Users",
-    href: "/volunteer/users",
+    label: "Team",
+    href: "/volunteer/team",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
+    label: "Users",
+    href: "/volunteer/users",
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
     ),
@@ -59,14 +72,15 @@ const navItems = [
     ),
   },
   {
-    label: "Team members",
+    label: "Crew",
     href: "/volunteer/team-member",
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <circle cx="9" cy="10" r="2" />
+        <path d="M15 8h2" />
+        <path d="M15 12h2" />
+        <path d="M7 16h10" />
       </svg>
     ),
   },
@@ -75,6 +89,7 @@ const navItems = [
 export default function VolunteerSidebar({
   eventId = "asdd87eqwejh2k13123kmnbk",
   eventName = "EVENT_NAME",
+  participationType,
   user = {
     name: "YOUR_NAME",
     email: "YOUR_EMAIL",
@@ -88,7 +103,7 @@ export default function VolunteerSidebar({
   const [imageError, setImageError] = useState(false);
 
   const handleLogout = () => {
-    router.push("/login");
+    router.push("/");
   };
 
   return (
@@ -118,12 +133,27 @@ export default function VolunteerSidebar({
 
         {/* Event Details Card */}
         <div className="px-2 py-1 text-xs text-[#6B7280] space-y-1 shrink-0">
-          <div className="font-mono text-[11px] truncate text-[#4B5563]">
-            <span className="font-medium text-[#0A0F1E]">Event Id:</span> {eventId}
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[11px] truncate text-[#4B5563]">
+              <span className="font-medium text-[#0A0F1E]">Event Id:</span> {eventId}
+            </span>
+            <Link
+              href="/events"
+              className="text-[11px] font-semibold text-[#FF6A00] hover:underline shrink-0"
+              title="Change active event"
+            >
+              Switch &rarr;
+            </Link>
           </div>
           <div className="text-[12px] truncate text-[#4B5563]">
             <span className="font-medium text-[#0A0F1E]">Event name:</span> {eventName}
           </div>
+          {participationType && (
+            <div className="text-[12px] truncate text-[#4B5563]">
+              <span className="font-medium text-[#0A0F1E]">Participation Type:</span>{" "}
+              <span className="font-semibold text-[#FF6A00]">{participationType}</span>
+            </div>
+          )}
         </div>
 
         {/* Main Navigation Card - Extended to bottom of container */}

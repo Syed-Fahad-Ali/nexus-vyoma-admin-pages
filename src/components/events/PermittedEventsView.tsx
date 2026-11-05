@@ -1,0 +1,350 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import {
+  MapPin,
+  Calendar,
+  Users,
+  User,
+  ArrowRight,
+  LogOut,
+  Sparkles,
+  Layers,
+  Flame,
+  Bot,
+  Code2,
+} from "lucide-react";
+import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
+import { volunteerService } from "@/services/volunteerService";
+import { VolunteerEvent } from "@/services/types/volunteer";
+
+// Helper to assign a minimal, strategic palette per track
+function getEventTheme(event: VolunteerEvent) {
+  const categoryLower = event.category.toLowerCase();
+  if (categoryLower.includes("robotics") || categoryLower.includes("combat")) {
+    return {
+      accentColor: "#E11D48",
+      accentBg: "bg-[#FFF1F2]",
+      accentBorder: "border-[#FFE4E6]",
+      accentText: "text-[#E11D48]",
+      topGradient: "from-[#E11D48] via-[#F43F5E] to-[#BE123C]",
+      categoryBadge: "bg-[#FFF1F2] text-[#BE123C] border-[#FFE4E6]",
+      cardHoverBorder: "hover:border-[#E11D48]/40",
+      ctaHoverBg: "group-hover:bg-[#E11D48] group-hover:text-white",
+      icon: Bot,
+    };
+  }
+  if (categoryLower.includes("software") || categoryLower.includes("coding") || event.participantType === "individual") {
+    return {
+      accentColor: "#2563EB",
+      accentBg: "bg-[#EFF6FF]",
+      accentBorder: "border-[#DBEAFE]",
+      accentText: "text-[#2563EB]",
+      topGradient: "from-[#2563EB] via-[#3B82F6] to-[#1D4ED8]",
+      categoryBadge: "bg-[#EFF6FF] text-[#1D4ED8] border-[#DBEAFE]",
+      cardHoverBorder: "hover:border-[#2563EB]/40",
+      ctaHoverBg: "group-hover:bg-[#2563EB] group-hover:text-white",
+      icon: Code2,
+    };
+  }
+  // Default: Flagship / Hackathon (Festival Signature Flame Orange)
+  return {
+    accentColor: "#FF6A00",
+    accentBg: "bg-[#FFF7ED]",
+    accentBorder: "border-[#FFEDD5]",
+    accentText: "text-[#EA580C]",
+    topGradient: "from-[#FF6A00] via-[#FB923C] to-[#C2410C]",
+    categoryBadge: "bg-[#FFF7ED] text-[#C2410C] border-[#FFEDD5]",
+    cardHoverBorder: "hover:border-[#FF6A00]/40",
+    ctaHoverBg: "group-hover:bg-[#FF6A00] group-hover:text-white",
+    icon: Flame,
+  };
+}
+
+export default function PermittedEventsView() {
+  const router = useRouter();
+  const [events, setEvents] = useState<VolunteerEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadPermittedEvents() {
+      setIsLoading(true);
+      const data = await volunteerService.getAssignedEvents();
+      if (isMounted) {
+        setEvents(data);
+        setIsLoading(false);
+      }
+    }
+    loadPermittedEvents();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSelectEvent = (event: VolunteerEvent) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("nexus_selected_event_id", event.id);
+    }
+    router.push("/volunteer/dashboard");
+  };
+
+  const handleSignOut = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("nexus_selected_event_id");
+    }
+    router.push("/");
+  };
+
+  return (
+    <div className="relative min-h-screen w-full bg-[#FAFAFC] text-[#0A0F1E] flex flex-col antialiased selection:bg-[#FF6A00]/10 selection:text-[#0A0F1E] overflow-x-hidden">
+      {/* Subtle Ambient Top Festival Glow (Warmth without clutter) */}
+      <div
+        className="absolute top-0 inset-x-0 h-80 pointer-events-none opacity-40 blur-3xl -z-10"
+        style={{
+          background:
+            "radial-gradient(ellipse 70% 50% at 50% 0%, rgba(255, 106, 0, 0.12) 0%, rgba(37, 99, 235, 0.06) 50%, transparent 100%)",
+        }}
+      />
+
+      {/* ======================================================== */}
+      {/* Top Navigation Bar                                       */}
+      {/* ======================================================== */}
+      <header className="w-full bg-white/95 backdrop-blur-md border-b border-[#E5E7EB] sticky top-0 z-30 transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <NexusVyomaLogo showMark={false} wordmarkHeight={26} />
+            <span className="hidden sm:inline-block h-4 w-[1px] bg-[#E5E7EB]" />
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-[#FFF7ED] border border-[#FFEDD5] text-[11px] font-semibold text-[#EA580C]">
+              <span>Volunteer Desk</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 text-xs text-[#4B5563] bg-[#F8F9FA] px-3 py-1.5 rounded-lg border border-[#E5E7EB]">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#16A34A] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#16A34A]" />
+              </span>
+              <span>Signed in as <strong className="text-[#0A0F1E]">YOUR_NAME</strong></span>
+            </div>
+
+            <button
+              onClick={handleSignOut}
+              className="inline-flex items-center gap-2 text-xs font-medium text-[#6B7280] hover:text-[#DC2626] bg-white hover:bg-[#FEF2F2] px-3 py-1.5 rounded-lg border border-[#E5E7EB] hover:border-[#FEE2E2] transition-colors cursor-pointer"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Sign Out</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ======================================================== */}
+      {/* Main Content Area                                        */}
+      {/* ======================================================== */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 flex flex-col">
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#FFF7ED] border border-[#FFEDD5] text-[#EA580C] mb-2 shadow-2xs">
+              <Sparkles className="w-3.5 h-3.5 text-[#FF6A00]" />
+              <span>Permitted Access</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#0A0F1E] tracking-tight">
+              Assigned Events
+            </h1>
+            <p className="text-sm text-[#6B7280] mt-1">
+              Select an event below to manage registrations, view live telemetry, and verify attendee passes.
+            </p>
+          </div>
+
+          <div className="shrink-0 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-white border border-[#E5E7EB] text-[#4B5563] shadow-xs">
+              <Layers className="w-3.5 h-3.5 text-[#FF6A00]" />
+              <span>{events.length} {events.length === 1 ? "Event Active" : "Events Active"}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Loading Spinner */}
+        {isLoading && (
+          <div className="flex-1 flex items-center justify-center py-24">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-8 h-8 border-2 border-[#FF6A00] border-t-transparent rounded-full animate-spin" />
+              <span className="text-xs font-medium text-[#6B7280]">Loading permitted events...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && events.length === 0 && (
+          <div className="flex-1 flex items-center justify-center py-20">
+            <div className="max-w-md text-center p-8 bg-white border border-[#E5E7EB] rounded-2xl shadow-xs">
+              <h2 className="text-base font-bold text-[#0A0F1E]">No Assigned Events Found</h2>
+              <p className="text-xs text-[#6B7280] mt-1.5 leading-relaxed">
+                Your account is currently not assigned to any active festival track. Please contact the festival coordinator to assign your duty track.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Event Containers (Single or Multiple) */}
+        {!isLoading && events.length > 0 && (
+          <div
+            className={`grid gap-6 ${
+              events.length === 1
+                ? "grid-cols-1 max-w-2xl mx-auto w-full"
+                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+            }`}
+          >
+            {events.map((evt) => {
+              const isSquad = evt.participantType === "team";
+              const theme = getEventTheme(evt);
+              const TrackIcon = theme.icon;
+
+              return (
+                <div
+                  key={evt.id}
+                  onClick={() => handleSelectEvent(evt)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      handleSelectEvent(evt);
+                    }
+                  }}
+                  className={`group bg-white rounded-2xl border border-[#E5E7EB] ${theme.cardHoverBorder} hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/20 relative`}
+                >
+                  {/* Strategic Color Accent Strip at Card Top */}
+                  <div
+                    className={`h-1.5 w-full bg-gradient-to-r ${theme.topGradient} opacity-90 group-hover:opacity-100 transition-opacity`}
+                  />
+
+                  {/* Poster Image Banner */}
+                  <div className="relative w-full h-44 sm:h-48 bg-[#0A0F1E] overflow-hidden">
+                    {evt.posterUrl ? (
+                      <Image
+                        src={evt.posterUrl}
+                        alt={evt.name}
+                        fill
+                        unoptimized
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-[#0A0F1E] to-[#1E293B] flex items-center justify-center text-white/50 text-xs font-mono">
+                        NEXUS VYOMA 2026
+                      </div>
+                    )}
+
+                    {/* Gradient Overlay for Text Readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
+
+                    {/* Category & Participant Format Badges */}
+                    <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+                      {/* Category Pill with Track Icon */}
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white/95 backdrop-blur-md text-[#0A0F1E] shadow-xs">
+                        <TrackIcon className="w-3.5 h-3.5 text-[#FF6A00]" />
+                        <span>{evt.category}</span>
+                      </span>
+
+                      {/* Participant Type Badge (Solo vs Squad with minimal distinct hues) */}
+                      {isSquad ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide bg-[#FF6A00] text-white shadow-xs">
+                          <Users className="w-3 h-3 text-white" />
+                          <span>Squad</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide bg-[#2563EB] text-white shadow-xs">
+                          <User className="w-3 h-3 text-white" />
+                          <span>Solo</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Bottom Tag over Image: Event Code */}
+                    <div className="absolute bottom-2.5 left-3">
+                      <span className="font-mono text-[11px] font-medium text-white/90 bg-black/60 px-2 py-0.5 rounded backdrop-blur-xs border border-white/10">
+                        {evt.code}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Event Details Content */}
+                  <div className="p-5 flex-1 flex flex-col justify-between">
+                    <div>
+                      {/* Event Name */}
+                      <h2 className="text-lg font-bold text-[#0A0F1E] group-hover:text-[#FF6A00] transition-colors leading-snug">
+                        {evt.name}
+                      </h2>
+
+                      {/* Metadata Rows with Micro-Colorized Semantic Capsules */}
+                      <div className="mt-4 space-y-2.5 text-xs text-[#4B5563]">
+                        {/* Venue (Rose/Coral Capsule) */}
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-[#FFF1F2] border border-[#FFE4E6] flex items-center justify-center shrink-0">
+                            <MapPin className="w-3.5 h-3.5 text-[#E11D48]" />
+                          </div>
+                          <span className="leading-tight truncate">
+                            <strong className="text-[#0A0F1E] font-medium">{evt.venue}</strong>
+                            <span className="text-[#6B7280]"> &middot; {evt.room}</span>
+                          </span>
+                        </div>
+
+                        {/* Time (Azure/Indigo Capsule) */}
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-[#EFF6FF] border border-[#DBEAFE] flex items-center justify-center shrink-0">
+                            <Calendar className="w-3.5 h-3.5 text-[#2563EB]" />
+                          </div>
+                          <span className="leading-tight truncate">
+                            <strong className="text-[#0A0F1E] font-medium">{evt.date}</strong>
+                            <span className="text-[#6B7280]"> &middot; {evt.startTime} – {evt.endTime}</span>
+                          </span>
+                        </div>
+
+                        {/* Participation Limit (Mint/Emerald Capsule) */}
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-[#F0FDF4] border border-[#DCFCE7] flex items-center justify-center shrink-0">
+                            <Users className="w-3.5 h-3.5 text-[#16A34A]" />
+                          </div>
+                          <span className="leading-tight truncate">
+                            <span className="text-[#6B7280]">Limit: </span>
+                            <strong className="text-[#0A0F1E] font-semibold">{evt.participationLimit}</strong>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Action Footer */}
+                    <div className="mt-6 pt-4 border-t border-[#F3F4F6] flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-[#6B7280]">
+                        {isSquad ? "Team format" : "Individual format"}
+                      </span>
+
+                      {/* Interactive Minimal CTA */}
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-transparent transition-all duration-150 ${theme.accentText} bg-[#F8F9FA] group-hover:bg-[#0A0F1E] group-hover:text-white`}
+                      >
+                        <span>Enter Dashboard</span>
+                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="w-full bg-white border-t border-[#E5E7EB] py-4 text-center text-xs text-[#9CA3AF]">
+        Nexus Vyoma 2026 &middot; ISL Engineering College &middot; Hyderabad
+      </footer>
+    </div>
+  );
+}

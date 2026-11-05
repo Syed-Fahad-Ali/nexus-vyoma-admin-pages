@@ -1,5 +1,6 @@
 export interface ScannedMember {
   id: string;
+  userId?: string;
   name: string;
   email: string;
   timestamp: string;
