@@ -222,8 +222,6 @@ export default function ScanModal({
     if (!isOpen) return;
 
     let isMounted = true;
-    const currentVideo = videoRef.current;
-    if (!currentVideo) return;
 
     async function initQrScanner() {
       setIsInitializing(true);
@@ -240,9 +238,15 @@ export default function ScanModal({
           return;
         }
 
+        const videoElem = videoRef.current;
+        if (!videoElem) {
+          setIsInitializing(false);
+          return;
+        }
+
         const scanner = new QrScanner(
-          currentVideo,
-          (result) => {
+          videoElem,
+          (result: QrScanner.ScanResult) => {
             if (result && typeof result.data === "string") {
               handleScannedResult(result.data);
             }
