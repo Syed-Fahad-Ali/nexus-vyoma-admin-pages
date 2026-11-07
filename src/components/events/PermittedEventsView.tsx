@@ -313,6 +313,7 @@ export default function PermittedEventsView() {
                         alt={evt.name}
                         fill
                         unoptimized
+                        priority
                         className="object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
