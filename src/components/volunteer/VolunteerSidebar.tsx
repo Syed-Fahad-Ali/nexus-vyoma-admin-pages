@@ -2,21 +2,15 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { useClerk, useUser } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
-
-interface UserProfile {
-  name: string;
-  email: string;
-  avatarUrl?: string;
-}
 
 interface VolunteerSidebarProps {
   eventId?: string;
   eventName?: string;
   participationType?: "Solo" | "Squad";
-  user?: UserProfile;
   isMobile?: boolean;
   onToggle?: () => void;
 }
@@ -90,21 +84,38 @@ export default function VolunteerSidebar({
   eventId = "asdd87eqwejh2k13123kmnbk",
   eventName = "EVENT_NAME",
   participationType,
-  user = {
-    name: "YOUR_NAME",
-    email: "YOUR_EMAIL",
-    avatarUrl: "",
-  },
   isMobile = false,
   onToggle,
 }: VolunteerSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
+  const { signOut } = useClerk();
+  const { user: clerkUser, isLoaded: isUserLoaded } = useUser();
   const [imageError, setImageError] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
-  const handleLogout = () => {
-    router.push("/");
+  const handleLogout = async () => {
+    setIsSigningOut(true);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("nexus_selected_event_id");
+    }
+    try {
+      await signOut({ redirectUrl: "/" });
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      setIsSigningOut(false);
+    }
   };
+
+  const userName =
+    isUserLoaded && clerkUser
+      ? clerkUser.fullName ?? clerkUser.firstName ?? "Volunteer"
+      : "Loading…";
+  const userEmail =
+    isUserLoaded && clerkUser
+      ? clerkUser.primaryEmailAddress?.emailAddress ?? ""
+      : "";
+  const userAvatarUrl =
+    isUserLoaded && clerkUser ? clerkUser.imageUrl : undefined;
 
   return (
     <aside className="w-[300px] xl:w-[320px] shrink-0 h-full flex flex-col justify-between p-4 bg-[#F8F9FA] border-r border-[#E5E7EB] text-[#0A0F1E] select-none">
@@ -186,10 +197,10 @@ export default function VolunteerSidebar({
         <div className="flex items-center gap-2.5 min-w-0">
           {/* Avatar with fallback */}
           <div className="w-9 h-9 rounded-full bg-[#F3F4F6] border border-[#D1D5DB] flex items-center justify-center shrink-0 overflow-hidden relative">
-            {user.avatarUrl && !imageError ? (
+            {userAvatarUrl && !imageError ? (
               <Image
-                src={user.avatarUrl}
-                alt={user.name}
+                src={userAvatarUrl}
+                alt={userName}
                 fill
                 unoptimized
                 className="object-cover"
@@ -213,10 +224,10 @@ export default function VolunteerSidebar({
           {/* Name & Email */}
           <div className="flex flex-col min-w-0">
             <span className="text-xs font-semibold text-[#0A0F1E] truncate leading-tight">
-              {user.name}
+              {userName}
             </span>
             <span className="text-[11px] text-[#6B7280] truncate leading-tight mt-0.5">
-              {user.email}
+              {userEmail}
             </span>
           </div>
         </div>
@@ -225,10 +236,11 @@ export default function VolunteerSidebar({
         <button
           type="button"
           onClick={handleLogout}
+          disabled={isSigningOut}
           aria-label="Logout"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] hover:bg-[#F9FAFB] active:bg-[#F3F4F6] text-xs font-medium text-[#4B5563] hover:text-[#DC2626] transition-colors shrink-0 cursor-pointer"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] hover:bg-[#F9FAFB] active:bg-[#F3F4F6] text-xs font-medium text-[#4B5563] hover:text-[#DC2626] transition-colors shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <span>Logout</span>
+          <span>{isSigningOut ? "Signing out…" : "Logout"}</span>
           <svg
             className="w-3.5 h-3.5"
             fill="none"

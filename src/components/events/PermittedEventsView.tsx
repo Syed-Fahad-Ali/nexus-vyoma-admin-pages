@@ -15,7 +15,9 @@ import {
   Flame,
   Bot,
   Code2,
+  Loader2,
 } from "lucide-react";
+import { useClerk, useUser } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
 import { volunteerService } from "@/services/volunteerService";
 import { VolunteerEvent } from "@/services/types/volunteer";
@@ -65,19 +67,31 @@ function getEventTheme(event: VolunteerEvent) {
 
 export default function PermittedEventsView() {
   const router = useRouter();
+  const { signOut } = useClerk();
+  const { user, isLoaded: isUserLoaded } = useUser();
   const [events, setEvents] = useState<VolunteerEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
+
     async function loadPermittedEvents() {
-      setIsLoading(true);
-      const data = await volunteerService.getAssignedEvents();
-      if (isMounted) {
-        setEvents(data);
-        setIsLoading(false);
+      try {
+        const data = await volunteerService.getAssignedEvents();
+
+        if (isMounted) {
+          setEvents(data);
+        }
+      } catch (error) {
+        console.error("Failed to load permitted events:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
+
     loadPermittedEvents();
 
     return () => {
@@ -92,12 +106,23 @@ export default function PermittedEventsView() {
     router.push("/volunteer/dashboard");
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
     if (typeof window !== "undefined") {
       localStorage.removeItem("nexus_selected_event_id");
     }
-    router.push("/");
+    try {
+      await signOut({ redirectUrl: "/" });
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      setIsSigningOut(false);
+    }
   };
+
+  const displayName =
+    isUserLoaded && user
+      ? user.fullName ?? user.firstName ?? "Volunteer"
+      : "Loading…";
 
   return (
     <div className="relative min-h-screen w-full bg-[#FAFAFC] text-[#0A0F1E] flex flex-col antialiased selection:bg-[#FF6A00]/10 selection:text-[#0A0F1E] overflow-x-hidden">
@@ -129,16 +154,21 @@ export default function PermittedEventsView() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#16A34A] opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#16A34A]" />
               </span>
-              <span>Signed in as <strong className="text-[#0A0F1E]">YOUR_NAME</strong></span>
+              <span>Signed in as <strong className="text-[#0A0F1E]">{displayName}</strong></span>
             </div>
 
             <button
               onClick={handleSignOut}
-              className="inline-flex items-center gap-2 text-xs font-medium text-[#6B7280] hover:text-[#DC2626] bg-white hover:bg-[#FEF2F2] px-3 py-1.5 rounded-lg border border-[#E5E7EB] hover:border-[#FEE2E2] transition-colors cursor-pointer"
+              disabled={isSigningOut}
+              className="inline-flex items-center gap-2 text-xs font-medium text-[#6B7280] hover:text-[#DC2626] bg-white hover:bg-[#FEF2F2] px-3 py-1.5 rounded-lg border border-[#E5E7EB] hover:border-[#FEE2E2] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               title="Sign Out"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
+              {isSigningOut ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <LogOut className="w-3.5 h-3.5" />
+              )}
+              <span className="hidden sm:inline">{isSigningOut ? "Signing out…" : "Sign Out"}</span>
             </button>
           </div>
         </div>
@@ -196,11 +226,10 @@ export default function PermittedEventsView() {
         {/* Event Containers (Single or Multiple) */}
         {!isLoading && events.length > 0 && (
           <div
-            className={`grid gap-6 ${
-              events.length === 1
-                ? "grid-cols-1 max-w-2xl mx-auto w-full"
-                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-            }`}
+            className={`grid gap-6 ${events.length === 1
+              ? "grid-cols-1 max-w-2xl mx-auto w-full"
+              : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+              }`}
           >
             {events.map((evt) => {
               const isSquad = evt.participantType === "team";
