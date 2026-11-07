@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import TeamMembersView from "@/components/volunteer/team/TeamMembersView";
 
 export default function TeamMemberPage() {
-  redirect("/volunteer/dashboard");
+  return <TeamMembersView />;
 }
