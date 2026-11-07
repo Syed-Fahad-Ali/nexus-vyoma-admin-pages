@@ -1,8 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { VolunteerEvent, ParticipationType } from "@/services/types/volunteer";
-import { volunteerService } from "@/services/volunteerService";
+import { volunteerService, VolunteerApiError } from "@/services/volunteerService";
 
 interface VolunteerEventContextType {
   assignedEvents: VolunteerEvent[];
@@ -17,6 +18,7 @@ interface VolunteerEventContextType {
 const VolunteerEventContext = createContext<VolunteerEventContextType | undefined>(undefined);
 
 export function VolunteerEventProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [assignedEvents, setAssignedEvents] = useState<VolunteerEvent[]>([]);
   const [selectedEventId, setSelectedEventIdState] = useState<string>("");
   const [participationType, setParticipationType] = useState<ParticipationType>("Squad");
@@ -25,23 +27,32 @@ export function VolunteerEventProvider({ children }: { children: React.ReactNode
   useEffect(() => {
     async function loadEvents() {
       setIsLoading(true);
-      const events = await volunteerService.getAssignedEvents();
-      setAssignedEvents(events);
+      try {
+        const events = await volunteerService.getAssignedEvents();
+        setAssignedEvents(events);
 
-      if (events.length > 0) {
-        // Read stored event if present in localStorage
-        const storedId = typeof window !== "undefined" ? localStorage.getItem("nexus_selected_event_id") : null;
-        const matched = events.find((e) => e.id === storedId);
-        const activeEvent = matched || events[0];
+        if (events.length > 0) {
+          // Read stored event if present in localStorage
+          const storedId = typeof window !== "undefined" ? localStorage.getItem("nexus_selected_event_id") : null;
+          const matched = events.find((e) => e.id === storedId);
+          const activeEvent = matched || events[0];
 
-        setSelectedEventIdState(activeEvent.id);
-        const initialType: ParticipationType = activeEvent.participantType === "team" ? "Squad" : "Solo";
-        setParticipationType(initialType);
+          setSelectedEventIdState(activeEvent.id);
+          const initialType: ParticipationType = activeEvent.participantType === "team" ? "Squad" : "Solo";
+          setParticipationType(initialType);
+        }
+      } catch (err) {
+        if (err instanceof VolunteerApiError && err.redirect) {
+          router.replace(err.redirectUrl || "/");
+          return;
+        }
+        console.error("Failed to load assigned events in context:", err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
     loadEvents();
-  }, []);
+  }, [router]);
 
   const setSelectedEventId = (id: string) => {
     setSelectedEventIdState(id);

@@ -387,21 +387,125 @@ const EVENT_PARTICIPANTS: Record<string, Participant[]> = {
 };
 
 // ============================================================================
-// SERVICE ABSTRACTION LAYER (MOCK IMPLEMENTATION)
+// SERVICE ABSTRACTION LAYER (MOCK & LIVE IMPLEMENTATION)
 // ============================================================================
+
+export class VolunteerApiError extends Error {
+  status?: number;
+  redirect?: boolean;
+  redirectUrl?: string | null;
+
+  constructor(message: string, status?: number, redirect?: boolean, redirectUrl?: string | null) {
+    super(message);
+    this.name = "VolunteerApiError";
+    this.status = status;
+    this.redirect = redirect;
+    this.redirectUrl = redirectUrl;
+  }
+}
 
 export const volunteerService = {
   /**
-   * Retrieves all events assigned to the logged-in volunteer.
+   * Retrieves all events assigned to the logged-in volunteer from /api/events.
+   * Handles diverse response shapes and normalizes DB models into VolunteerEvent.
    */
   async getAssignedEvents(): Promise<VolunteerEvent[]> {
-    return MOCK_ASSIGNED_EVENTS;
+    const response = await fetch("/api/events", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok || !result || result.error) {
+      const errorMessage =
+        result?.error ||
+        result?.message ||
+        `Failed to fetch assigned events (HTTP ${response.status})`;
+
+      throw new VolunteerApiError(
+        errorMessage,
+        response.status,
+        result?.redirect ?? false,
+        result?.redirectUrl ?? null
+      );
+    }
+
+    const rawData = result.data;
+    if (!rawData) {
+      return [];
+    }
+
+    // Adapt flexibly to populated EventTeamMember or direct event arrays
+    let rawEventsList: any[] = [];
+    if (Array.isArray(rawData)) {
+      rawEventsList = rawData;
+    } else if (Array.isArray(rawData.event_id)) {
+      rawEventsList = rawData.event_id;
+    } else if (rawData.event_id && typeof rawData.event_id === "object") {
+      rawEventsList = [rawData.event_id];
+    } else if (Array.isArray(rawData.events)) {
+      rawEventsList = rawData.events;
+    }
+
+    return rawEventsList.map((raw: any) => {
+      const id = String(raw._id || raw.id || "");
+      const isTech = Boolean(raw.isTechEvent);
+      const codeFallback = `${isTech ? "NV-TECH" : "NV-FEST"}-${id ? id.slice(-4).toUpperCase() : "01"}`;
+      const participantType: "individual" | "team" =
+        raw.participants_type === "individual" || raw.participantType === "individual"
+          ? "individual"
+          : "team";
+
+      const limitStr =
+        typeof raw.participationLimit === "string"
+          ? raw.participationLimit
+          : raw.participant_limit
+          ? `${raw.participant_limit} ${participantType === "team" ? "Squads" : "Solo Entries"}`
+          : participantType === "team"
+          ? "Squads format"
+          : "Solo format";
+
+      return {
+        id,
+        code: raw.code || codeFallback,
+        name: raw.title || raw.name || "Festival Track Event",
+        category: raw.category || (isTech ? "Technical Track" : "Flagship Event"),
+        posterUrl: raw.image_url || raw.posterUrl || "",
+        venue: raw.venue || "ISL Campus",
+        room: raw.room || (raw.venue?.includes(",") ? raw.venue.split(",").slice(1).join(",").trim() : "Main Stage"),
+        date: raw.date || raw.date_time || "10–12 Nov 2026",
+        startTime: raw.startTime || "09:00 AM",
+        endTime: raw.endTime || "05:00 PM",
+        participationLimit: limitStr,
+        participantType,
+        coordinator: raw.coordinator || {
+          name: rawData.full_name || "Festival Faculty Lead",
+          role: "Event In-Charge",
+          phone: "+91 98480 11223",
+          email: rawData.email || "",
+        },
+        responsibilities: raw.responsibilities || raw.requirements || [],
+        shifts: raw.shifts || [],
+        announcements: raw.announcements || [],
+      };
+    });
   },
 
   /**
    * Retrieves specific event by ID.
    */
   async getEventById(eventId: string): Promise<VolunteerEvent | null> {
+    try {
+      const events = await this.getAssignedEvents();
+      const found = events.find((e) => e.id === eventId);
+      if (found) return found;
+    } catch {
+      // Fallback to local mocks if API call fails
+    }
     return MOCK_ASSIGNED_EVENTS.find((e) => e.id === eventId) || null;
   },
 

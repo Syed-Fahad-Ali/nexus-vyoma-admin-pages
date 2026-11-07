@@ -16,10 +16,12 @@ import {
   Bot,
   Code2,
   Loader2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
-import { volunteerService } from "@/services/volunteerService";
+import { volunteerService, VolunteerApiError } from "@/services/volunteerService";
 import { VolunteerEvent } from "@/services/types/volunteer";
 
 // Helper to assign a minimal, strategic palette per track
@@ -71,32 +73,46 @@ export default function PermittedEventsView() {
   const { user, isLoaded: isUserLoaded } = useUser();
   const [events, setEvents] = useState<VolunteerEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<{
+    message: string;
+    redirect?: boolean;
+    redirectUrl?: string | null;
+  } | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadPermittedEvents() {
-      try {
-        const data = await volunteerService.getAssignedEvents();
-
-        if (isMounted) {
-          setEvents(data);
-        }
-      } catch (error) {
-        console.error("Failed to load permitted events:", error);
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+  const loadPermittedEvents = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await volunteerService.getAssignedEvents();
+      setEvents(data);
+    } catch (err) {
+      if (err instanceof VolunteerApiError && err.redirect) {
+        router.replace(err.redirectUrl || "/");
+        return;
       }
+      console.error("Failed to load permitted events:", err);
+      if (err instanceof VolunteerApiError) {
+        setError({
+          message: err.message,
+          redirect: err.redirect,
+          redirectUrl: err.redirectUrl,
+        });
+      } else {
+        setError({
+          message:
+            err instanceof Error
+              ? err.message
+              : "Failed to load events. Please check your network connection.",
+        });
+      }
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  useEffect(() => {
     loadPermittedEvents();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   const handleSelectEvent = (event: VolunteerEvent) => {
@@ -211,8 +227,43 @@ export default function PermittedEventsView() {
           </div>
         )}
 
+        {/* Error State */}
+        {!isLoading && error && (
+          <div className="flex-1 flex items-center justify-center py-16">
+            <div className="max-w-md w-full bg-white border border-[#FEE2E2] rounded-2xl p-6 sm:p-8 shadow-xs text-center flex flex-col items-center">
+              <div className="w-12 h-12 rounded-full bg-[#FEF2F2] border border-[#FCA5A5]/40 flex items-center justify-center text-[#DC2626] mb-4">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h2 className="text-base font-bold text-[#0A0F1E]">
+                Unable to Load Assigned Events
+              </h2>
+              <p className="text-xs text-[#6B7280] mt-2 leading-relaxed">
+                {error.message || "An unexpected error occurred while fetching your assigned festival events."}
+              </p>
+
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
+                <button
+                  onClick={() => loadPermittedEvents()}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0A0F1E] text-white hover:bg-[#1E293B] text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Try Again</span>
+                </button>
+                {error.redirect && error.redirectUrl && (
+                  <button
+                    onClick={() => router.push(error.redirectUrl || "/")}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#F8F9FA] text-[#4B5563] hover:text-[#0A0F1E] hover:bg-[#E5E7EB] border border-[#E5E7EB] text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <span>Back to Home</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Empty State */}
-        {!isLoading && events.length === 0 && (
+        {!isLoading && !error && events.length === 0 && (
           <div className="flex-1 flex items-center justify-center py-20">
             <div className="max-w-md text-center p-8 bg-white border border-[#E5E7EB] rounded-2xl shadow-xs">
               <h2 className="text-base font-bold text-[#0A0F1E]">No Assigned Events Found</h2>
@@ -224,7 +275,7 @@ export default function PermittedEventsView() {
         )}
 
         {/* Event Containers (Single or Multiple) */}
-        {!isLoading && events.length > 0 && (
+        {!isLoading && !error && events.length > 0 && (
           <div
             className={`grid gap-6 ${events.length === 1
               ? "grid-cols-1 max-w-2xl mx-auto w-full"
@@ -320,7 +371,7 @@ export default function PermittedEventsView() {
                           </div>
                           <span className="leading-tight truncate">
                             <strong className="text-[#0A0F1E] font-medium">{evt.venue}</strong>
-                            <span className="text-[#6B7280]"> &middot; {evt.room}</span>
+                            {evt.room && <span className="text-[#6B7280]"> &middot; {evt.room}</span>}
                           </span>
                         </div>
 
@@ -331,7 +382,9 @@ export default function PermittedEventsView() {
                           </div>
                           <span className="leading-tight truncate">
                             <strong className="text-[#0A0F1E] font-medium">{evt.date}</strong>
-                            <span className="text-[#6B7280]"> &middot; {evt.startTime} – {evt.endTime}</span>
+                            {evt.startTime && (
+                              <span className="text-[#6B7280]"> &middot; {evt.startTime}{evt.endTime ? ` – ${evt.endTime}` : ""}</span>
+                            )}
                           </span>
                         </div>
 
