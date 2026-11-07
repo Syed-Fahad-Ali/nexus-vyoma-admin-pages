@@ -496,17 +496,181 @@ export const volunteerService = {
   },
 
   /**
-   * Retrieves specific event by ID.
+   * Retrieves specific event by ID directly from /api/events/:id.
    */
-  async getEventById(eventId: string): Promise<VolunteerEvent | null> {
-    try {
-      const events = await this.getAssignedEvents();
-      const found = events.find((e) => e.id === eventId);
-      if (found) return found;
-    } catch {
-      // Fallback to local mocks if API call fails
+  async getEventById(eventId: string): Promise<VolunteerEvent> {
+    const response = await fetch(`/api/events/${eventId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok || !result || result.error) {
+      const errorMessage =
+        result?.error ||
+        result?.message ||
+        `Failed to fetch event (HTTP ${response.status})`;
+
+      throw new VolunteerApiError(
+        errorMessage,
+        response.status,
+        result?.redirect ?? false,
+        result?.redirectUrl ?? null
+      );
     }
-    return MOCK_ASSIGNED_EVENTS.find((e) => e.id === eventId) || null;
+
+    const raw = result.data?.event || result.data;
+    const userData = result.data?.userData || {};
+    const id = String(raw._id || raw.id || eventId);
+    const isTech = Boolean(raw.isTechEvent);
+    const codeFallback = `${isTech ? "NV-TECH" : "NV-FEST"}-${id ? id.slice(-4).toUpperCase() : "01"}`;
+    const participantType: "individual" | "team" =
+      raw.participants_type === "individual" || raw.participantType === "individual"
+        ? "individual"
+        : "team";
+
+    const limitStr =
+      typeof raw.participationLimit === "string"
+        ? raw.participationLimit
+        : raw.participant_limit
+        ? `${raw.participant_limit} ${participantType === "team" ? "Squads" : "Solo Entries"}`
+        : participantType === "team"
+        ? "Squads format"
+        : "Solo format";
+
+    return {
+      id,
+      code: raw.code || codeFallback,
+      name: raw.title || raw.name || "Festival Track Event",
+      category: raw.category || (isTech ? "Technical Track" : "Flagship Event"),
+      posterUrl: raw.image_url || raw.posterUrl || "",
+      venue: raw.venue || "ISL Campus",
+      room: raw.room || (raw.venue?.includes(",") ? raw.venue.split(",").slice(1).join(",").trim() : "Main Stage"),
+      date: raw.date || raw.date_time || "10–12 Nov 2026",
+      startTime: raw.startTime || "09:00 AM",
+      endTime: raw.endTime || "05:00 PM",
+      participationLimit: limitStr,
+      participantType,
+      coordinator: raw.coordinator || {
+        name: userData.full_name || "Festival Faculty Lead",
+        role: "Event In-Charge",
+        phone: "+91 98480 11223",
+        email: userData.email || "",
+      },
+      responsibilities: raw.responsibilities || raw.requirements || [],
+      shifts: raw.shifts || [],
+      announcements: raw.announcements || [],
+    };
+  },
+
+  /**
+   * Retrieves registered users & check-in status from /api/dashboard/users.
+   */
+  async getDashboardUsers(eventId: string): Promise<{
+    users: import("@/lib/dummy-users-data").UserAttendee[];
+    totalUsersCount: number;
+    totalTeamsCount: number;
+    totalCheckedInCount: number;
+    isIndividual: boolean;
+  }> {
+    const response = await fetch("/api/dashboard/users", {
+      method: "GET",
+      headers: {
+        "event-id": eventId,
+        eventId: eventId,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok || !result || result.error) {
+      const errorMessage =
+        result?.error ||
+        result?.message ||
+        `Failed to fetch event users (HTTP ${response.status})`;
+
+      throw new VolunteerApiError(
+        errorMessage,
+        response.status,
+        result?.redirect ?? false,
+        result?.redirectUrl ?? null
+      );
+    }
+
+    const data = result.data || {};
+    const event = data.event || {};
+    const isIndividual = event.participants_type === "individual";
+
+    // Set of checked-in attendee IDs from EventEntry documents
+    const checkedInEntries: any[] = data.checkedInUsers?.users || [];
+    const checkedInMap = new Map<string, string>();
+    checkedInEntries.forEach((entry: any) => {
+      const attendeeId = entry.attendee?._id
+        ? String(entry.attendee._id)
+        : entry.attendee
+        ? String(entry.attendee)
+        : null;
+      if (attendeeId) {
+        const timeStr = entry.checked_in_at
+          ? new Date(entry.checked_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : entry.createdAt
+          ? new Date(entry.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "Checked-in";
+        checkedInMap.set(attendeeId, timeStr);
+      }
+    });
+
+    const rawUsers: any[] = isIndividual
+      ? data.individualUsers?.users || []
+      : data.teamUsers?.users || [];
+
+    const totalTeamsCount = Number(data.teamUsers?.count ?? 0);
+    const totalUsersCount = Number(
+      isIndividual
+        ? data.individualUsers?.count ?? rawUsers.length
+        : data.teamUsers?.usersCount ?? rawUsers.length
+    );
+    const totalCheckedInCount = Number(data.checkedInUsers?.count ?? checkedInMap.size);
+
+    const users: import("@/lib/dummy-users-data").UserAttendee[] = rawUsers.map((u: any) => {
+      const userId = String(u._id || u.id || "");
+      const isCheckedIn = checkedInMap.has(userId);
+      const checkedInAt = checkedInMap.get(userId);
+
+      const enrolledAt = u.createdAt
+        ? new Date(u.createdAt).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })
+        : "Nov 10, 2026";
+
+      return {
+        id: userId,
+        name: u.full_name || u.name || "Attendee",
+        email: u.email || "",
+        phone: u.phone_number || u.phone || "—",
+        enrolledAt,
+        isPaid: true,
+        participantsType: isIndividual ? "individual" : "team",
+        isCheckedIn,
+        checkedInAt,
+      };
+    });
+
+    return {
+      users,
+      totalUsersCount,
+      totalTeamsCount,
+      totalCheckedInCount,
+      isIndividual,
+    };
   },
 
   /**

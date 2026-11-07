@@ -1,5 +1,5 @@
 export type ParticipantType = "individual" | "team";
-export type ParticipationType = "Solo" | "Squad";
+export type ParticipationType = "individual" | "team" | "Solo" | "Squad";
 
 export interface VolunteerCoordinator {
   name: string;

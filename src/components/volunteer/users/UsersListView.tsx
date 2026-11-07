@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Users,
   Search,
   Phone,
   Calendar,
   CheckCircle2,
-  XCircle,
   Filter,
   X,
   ChevronDown,
@@ -19,6 +19,7 @@ import {
   Check,
   AlertCircle,
   Trophy,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,30 +31,87 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import {
-  INITIAL_USERS,
-  ALL_FESTIVAL_TEAMS,
-  type UserAttendee,
-} from "@/lib/dummy-users-data";
+import { type UserAttendee } from "@/lib/dummy-users-data";
+import { useVolunteerEvent } from "../context/VolunteerEventContext";
+import { volunteerService, VolunteerApiError } from "@/services/volunteerService";
 
 export default function UsersListView() {
-  const [users] = useState<UserAttendee[]>(INITIAL_USERS);
+  const router = useRouter();
+  const { selectedEvent, selectedEventId } = useVolunteerEvent();
+
+  const [users, setUsers] = useState<UserAttendee[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<{ message: string; redirect?: boolean; redirectUrl?: string | null } | null>(null);
+  const [counts, setCounts] = useState({
+    totalUsersCount: 0,
+    totalTeamsCount: 0,
+    totalCheckedInCount: 0,
+  });
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"ALL" | "PAID" | "UNPAID" | "CHECKED_IN" | "NOT_CHECKED_IN">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "CHECKED_IN" | "NOT_CHECKED_IN">("ALL");
   const [selectedTeam, setSelectedTeam] = useState<string>("ALL");
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Total festival metrics
-  const totalUsersCount = 1450;
-  const totalTeamsCount = 128; // Total registered event teams
-  const paidUsersCount = 1280;
-  const totalCheckedInCount = 940;
+  const isIndividual = selectedEvent?.participantType === "individual";
+
+  const loadUsers = async () => {
+    if (!selectedEventId) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await volunteerService.getDashboardUsers(selectedEventId);
+      setUsers(res.users);
+      setCounts({
+        totalUsersCount: res.totalUsersCount,
+        totalTeamsCount: res.totalTeamsCount,
+        totalCheckedInCount: res.totalCheckedInCount,
+      });
+    } catch (err) {
+      if (err instanceof VolunteerApiError && err.redirect) {
+        router.replace(err.redirectUrl || "/");
+        return;
+      }
+      console.error("Failed to load dashboard users:", err);
+      if (err instanceof VolunteerApiError) {
+        setError({
+          message: err.message,
+          redirect: err.redirect,
+          redirectUrl: err.redirectUrl,
+        });
+      } else {
+        setError({
+          message: err instanceof Error ? err.message : "Failed to load registered attendees",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
+  }, [selectedEventId]);
+
+  // Dynamic available teams list from loaded users (if team event)
+  const availableTeams = useMemo(() => {
+    if (isIndividual) return [];
+    const teamSet = new Set<string>();
+    users.forEach((u) => {
+      if (u.teamName) teamSet.add(u.teamName);
+    });
+    return Array.from(teamSet);
+  }, [users, isIndividual]);
 
   // Copy contact details helper
   const handleCopyContact = (user: UserAttendee) => {
-    navigator.clipboard.writeText(`${user.name} | ${user.email} | ${user.phone}${user.teamName ? ` | Team: ${user.teamName}` : ""}`);
+    navigator.clipboard.writeText(`${user.name} | ${user.email} | ${user.phone}`);
     setCopiedId(user.id);
     setTimeout(() => setCopiedId(null), 1800);
   };
@@ -67,19 +125,17 @@ export default function UsersListView() {
         user.name.toLowerCase().includes(q) ||
         user.email.toLowerCase().includes(q) ||
         user.phone.toLowerCase().includes(q) ||
-        (user.teamName && user.teamName.toLowerCase().includes(q));
+        (!isIndividual && user.teamName && user.teamName.toLowerCase().includes(q));
 
       let matchesStatus = true;
-      if (statusFilter === "PAID") matchesStatus = user.isPaid;
-      else if (statusFilter === "UNPAID") matchesStatus = !user.isPaid;
-      else if (statusFilter === "CHECKED_IN") matchesStatus = !!user.isCheckedIn;
+      if (statusFilter === "CHECKED_IN") matchesStatus = !!user.isCheckedIn;
       else if (statusFilter === "NOT_CHECKED_IN") matchesStatus = !user.isCheckedIn;
 
-      const matchesTeam = selectedTeam === "ALL" || user.teamName === selectedTeam;
+      const matchesTeam = isIndividual || selectedTeam === "ALL" || user.teamName === selectedTeam;
 
       return matchesSearch && matchesStatus && matchesTeam;
     });
-  }, [users, searchQuery, statusFilter, selectedTeam]);
+  }, [users, searchQuery, statusFilter, selectedTeam, isIndividual]);
 
   // Helper for avatar initials
   const getInitials = (name: string) => {
@@ -93,10 +149,6 @@ export default function UsersListView() {
 
   const getStatusFilterLabel = () => {
     switch (statusFilter) {
-      case "PAID":
-        return "Status: Paid";
-      case "UNPAID":
-        return "Status: Unpaid";
       case "CHECKED_IN":
         return "Status: Checked-in";
       case "NOT_CHECKED_IN":
@@ -105,6 +157,51 @@ export default function UsersListView() {
         return "All Statuses";
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-24">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[#FF6A00] border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-medium text-[#6B7280]">Loading event attendees...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-16">
+        <div className="max-w-md w-full bg-white border border-[#FEE2E2] rounded-2xl p-6 sm:p-8 shadow-xs text-center flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full bg-[#FEF2F2] border border-[#FCA5A5]/40 flex items-center justify-center text-[#DC2626] mb-4">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-[#0A0F1E]">
+            Unable to Load Event Attendees
+          </h2>
+          <p className="text-xs text-[#6B7280] mt-2 leading-relaxed">
+            {error.message || "An error occurred while fetching attendee registrations."}
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
+            <button
+              onClick={() => loadUsers()}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0A0F1E] text-white hover:bg-[#1E293B] text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Try Again</span>
+            </button>
+            <button
+              onClick={() => router.push("/volunteer/dashboard")}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#F8F9FA] text-[#4B5563] hover:text-[#0A0F1E] hover:bg-[#E5E7EB] border border-[#E5E7EB] text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <span>Back to Dashboard</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full flex flex-col gap-6 select-none">
@@ -115,19 +212,24 @@ export default function UsersListView() {
             Users
           </h1>
           <p className="text-xs sm:text-sm text-[#6B7280] mt-1">
-            Registered attendees, competitive teams, check-in verification, and payments.
+            {isIndividual
+              ? "Registered individual attendees, check-in verification, and admissions."
+              : "Registered attendees, participating teams, check-in verification, and admissions."}
           </p>
         </div>
 
         {/* Status Pill */}
         <div className="inline-flex items-center gap-2 self-start sm:self-auto px-3.5 py-1.5 rounded-full border border-[#E5E7EB] bg-white text-xs font-semibold text-[#0A0F1E] shadow-2xs">
           <span className="w-2 h-2 rounded-full bg-[#16A34A] animate-pulse" />
-          <span>{totalTeamsCount} Teams &middot; {totalUsersCount.toLocaleString()} Attendees</span>
+          <span>
+            {!isIndividual && `${counts.totalTeamsCount} Teams · `}
+            {counts.totalUsersCount.toLocaleString()} Attendees
+          </span>
         </div>
       </div>
 
-      {/* 2. Top Metric / Stat Cards (4 Cards including Number of Teams) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 2. Top Metric / Stat Cards (No "Paid Registrations" card, No "Number of Teams" if individual) */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isIndividual ? "lg:grid-cols-2 max-w-2xl" : "lg:grid-cols-3"} gap-4`}>
         {/* Card 1: Number of Users */}
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-[#6B7280]">
@@ -138,42 +240,29 @@ export default function UsersListView() {
           </div>
           <div className="mt-3">
             <span className="text-2xl sm:text-3xl font-extrabold text-[#0A0F1E] tracking-tight">
-              {totalUsersCount.toLocaleString()}
+              {counts.totalUsersCount.toLocaleString()}
             </span>
           </div>
         </div>
 
-        {/* Card 2: Number of Teams */}
-        <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[#6B7280]">
-            <span className="text-xs font-medium tracking-wide">
-              Number of Teams
-            </span>
-            <Trophy className="w-4 h-4 text-[#FF6A00]" />
+        {/* Card 2: Number of Teams (Only shown if NOT individual event) */}
+        {!isIndividual && (
+          <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between text-[#6B7280]">
+              <span className="text-xs font-medium tracking-wide">
+                Number of Teams
+              </span>
+              <Trophy className="w-4 h-4 text-[#FF6A00]" />
+            </div>
+            <div className="mt-3">
+              <span className="text-2xl sm:text-3xl font-extrabold text-[#0A0F1E] tracking-tight">
+                {counts.totalTeamsCount}
+              </span>
+            </div>
           </div>
-          <div className="mt-3">
-            <span className="text-2xl sm:text-3xl font-extrabold text-[#0A0F1E] tracking-tight">
-              {totalTeamsCount}
-            </span>
-          </div>
-        </div>
+        )}
 
-        {/* Card 3: Paid Registrations */}
-        <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between text-[#6B7280]">
-            <span className="text-xs font-medium tracking-wide">
-              Paid Registrations
-            </span>
-            <CheckCircle2 className="w-4 h-4 text-[#16A34A]" />
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl sm:text-3xl font-extrabold text-[#0A0F1E] tracking-tight">
-              {paidUsersCount.toLocaleString()}
-            </span>
-          </div>
-        </div>
-
-        {/* Card 4: Checked-in Attendees */}
+        {/* Card 3: Checked-in Attendees */}
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between text-[#6B7280]">
             <span className="text-xs font-medium tracking-wide">
@@ -183,13 +272,13 @@ export default function UsersListView() {
           </div>
           <div className="mt-3">
             <span className="text-2xl sm:text-3xl font-extrabold text-[#0A0F1E] tracking-tight">
-              {totalCheckedInCount.toLocaleString()}
+              {counts.totalCheckedInCount.toLocaleString()}
             </span>
           </div>
         </div>
       </div>
 
-      {/* 3. Search Bar & Filter Controls (Status + Team Filters) */}
+      {/* 3. Search Bar & Filter Controls (Status + Team Filter if team event) */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
         {/* Search Input */}
         <div className="relative flex-1">
@@ -197,7 +286,7 @@ export default function UsersListView() {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, email, phone, or team name"
+            placeholder={isIndividual ? "Search by name, email, or phone" : "Search by name, email, phone, or team name"}
             className="pl-10 pr-10 h-11 bg-white border-[#E5E7EB] rounded-xl text-sm focus-visible:ring-1 focus-visible:ring-[#FF6A00] w-full"
           />
           {searchQuery && (
@@ -210,64 +299,66 @@ export default function UsersListView() {
           )}
         </div>
 
-        {/* Team Filter Dropdown */}
-        <div className="relative">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setIsTeamDropdownOpen(!isTeamDropdownOpen);
-              setIsStatusDropdownOpen(false);
-            }}
-            className="h-11 px-4 rounded-xl border-[#E5E7EB] bg-white hover:bg-[#F9FAFB] text-sm text-[#0A0F1E] font-medium flex items-center justify-between gap-2 w-full md:w-[190px] cursor-pointer"
-          >
-            <div className="flex items-center gap-2 truncate">
-              <Trophy className="w-3.5 h-3.5 text-[#FF6A00]" />
-              <span className="truncate">
-                {selectedTeam === "ALL" ? "All Teams" : selectedTeam}
-              </span>
-            </div>
-            <ChevronDown className={`w-3.5 h-3.5 text-[#9CA3AF] transition-transform duration-200 ${isTeamDropdownOpen ? "rotate-180" : ""}`} />
-          </Button>
+        {/* Team Filter Dropdown (Only shown if NOT individual event) */}
+        {!isIndividual && (
+          <div className="relative">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsTeamDropdownOpen(!isTeamDropdownOpen);
+                setIsStatusDropdownOpen(false);
+              }}
+              className="h-11 px-4 rounded-xl border-[#E5E7EB] bg-white hover:bg-[#F9FAFB] text-sm text-[#0A0F1E] font-medium flex items-center justify-between gap-2 w-full md:w-[190px] cursor-pointer"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <Trophy className="w-3.5 h-3.5 text-[#FF6A00]" />
+                <span className="truncate">
+                  {selectedTeam === "ALL" ? "All Teams" : selectedTeam}
+                </span>
+              </div>
+              <ChevronDown className={`w-3.5 h-3.5 text-[#9CA3AF] transition-transform duration-200 ${isTeamDropdownOpen ? "rotate-180" : ""}`} />
+            </Button>
 
-          {isTeamDropdownOpen && (
-            <>
-              <div
-                className="fixed inset-0 z-20"
-                onClick={() => setIsTeamDropdownOpen(false)}
-              />
-              <div className="absolute right-0 mt-1.5 w-full md:w-60 max-h-72 bg-white border border-[#E5E7EB] rounded-xl shadow-lg z-30 py-1.5 overflow-y-auto">
-                <button
-                  onClick={() => {
-                    setSelectedTeam("ALL");
-                    setIsTeamDropdownOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#F3F4F6] cursor-pointer ${
-                    selectedTeam === "ALL" ? "text-[#0A0F1E] font-bold bg-[#F9FAFB]" : "text-[#4B5563]"
-                  }`}
-                >
-                  <span>All Teams ({ALL_FESTIVAL_TEAMS.length})</span>
-                  {selectedTeam === "ALL" && <span className="w-1.5 h-1.5 rounded-full bg-[#0A0F1E]" />}
-                </button>
-                <div className="h-px bg-[#E5E7EB] my-1" />
-                {ALL_FESTIVAL_TEAMS.map((team) => (
+            {isTeamDropdownOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-20"
+                  onClick={() => setIsTeamDropdownOpen(false)}
+                />
+                <div className="absolute right-0 mt-1.5 w-full md:w-60 max-h-72 bg-white border border-[#E5E7EB] rounded-xl shadow-lg z-30 py-1.5 overflow-y-auto">
                   <button
-                    key={team}
                     onClick={() => {
-                      setSelectedTeam(team);
+                      setSelectedTeam("ALL");
                       setIsTeamDropdownOpen(false);
                     }}
                     className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#F3F4F6] cursor-pointer ${
-                      selectedTeam === team ? "text-[#FF6A00] font-bold bg-[#FFF4ED]" : "text-[#4B5563]"
+                      selectedTeam === "ALL" ? "text-[#0A0F1E] font-bold bg-[#F9FAFB]" : "text-[#4B5563]"
                     }`}
                   >
-                    <span className="truncate">{team}</span>
-                    {selectedTeam === team && <span className="w-1.5 h-1.5 rounded-full bg-[#FF6A00]" />}
+                    <span>All Teams ({availableTeams.length})</span>
+                    {selectedTeam === "ALL" && <span className="w-1.5 h-1.5 rounded-full bg-[#0A0F1E]" />}
                   </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+                  <div className="h-px bg-[#E5E7EB] my-1" />
+                  {availableTeams.map((team) => (
+                    <button
+                      key={team}
+                      onClick={() => {
+                        setSelectedTeam(team);
+                        setIsTeamDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#F3F4F6] cursor-pointer ${
+                        selectedTeam === team ? "text-[#FF6A00] font-bold bg-[#FFF4ED]" : "text-[#4B5563]"
+                      }`}
+                    >
+                      <span className="truncate">{team}</span>
+                      {selectedTeam === team && <span className="w-1.5 h-1.5 rounded-full bg-[#FF6A00]" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Status Filter Dropdown */}
         <div className="relative">
@@ -337,40 +428,6 @@ export default function UsersListView() {
                   </span>
                   {statusFilter === "NOT_CHECKED_IN" && <span className="w-1.5 h-1.5 rounded-full bg-[#0A0F1E]" />}
                 </button>
-
-                <div className="h-px bg-[#E5E7EB] my-1" />
-
-                <button
-                  onClick={() => {
-                    setStatusFilter("PAID");
-                    setIsStatusDropdownOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#F3F4F6] cursor-pointer ${
-                    statusFilter === "PAID" ? "text-[#16A34A] font-bold bg-[#DCFCE7]/40" : "text-[#4B5563]"
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A]" />
-                    Paid Only
-                  </span>
-                  {statusFilter === "PAID" && <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setStatusFilter("UNPAID");
-                    setIsStatusDropdownOpen(false);
-                  }}
-                  className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#F3F4F6] cursor-pointer ${
-                    statusFilter === "UNPAID" ? "text-[#D97706] font-bold bg-[#FEF3C7]/40" : "text-[#4B5563]"
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <XCircle className="w-3.5 h-3.5 text-[#D97706]" />
-                    Unpaid Only
-                  </span>
-                  {statusFilter === "UNPAID" && <span className="w-1.5 h-1.5 rounded-full bg-[#D97706]" />}
-                </button>
               </div>
             </>
           )}
@@ -395,24 +452,15 @@ export default function UsersListView() {
                 key={user.id}
                 className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 px-5 lg:px-6 py-4 items-center hover:bg-[#F9FAFB] transition-colors"
               >
-                {/* Column 1: User Details (Avatar + Name + Team Name if team event + Email) */}
+                {/* Column 1: User Details (Avatar + Name + Email) — No team name badge */}
                 <div className="col-span-5 flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full border border-[#D1D5DB] bg-[#F3F4F6] flex items-center justify-center shrink-0 font-bold text-xs text-[#0A0F1E]">
                     {getInitials(user.name)}
                   </div>
                   <div className="flex flex-col min-w-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm font-semibold text-[#0A0F1E] truncate">
-                        {user.name}
-                      </span>
-                      {/* Team Name badge shown for participants_type: team */}
-                      {user.participantsType === "team" && user.teamName && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#FF6A00] bg-[#FFF4ED] border border-[#FFEDD5] px-2 py-0.5 rounded-md shrink-0">
-                          <Trophy className="w-3 h-3 text-[#FF6A00]" />
-                          <span>Team: {user.teamName}</span>
-                        </span>
-                      )}
-                    </div>
+                    <span className="text-sm font-semibold text-[#0A0F1E] truncate">
+                      {user.name}
+                    </span>
                     <span className="text-xs text-[#6B7280] truncate font-mono mt-0.5">
                       {user.email}
                     </span>
@@ -431,23 +479,16 @@ export default function UsersListView() {
                   <span className="truncate">{user.enrolledAt}</span>
                 </div>
 
-                {/* Column 4: Payment Badge + Check-in Status + 3 Dots Action Menu */}
+                {/* Column 4: Payment Badge (Paid for all) + Check-in Status + 3 Dots Action Menu */}
                 <div className="col-span-3 flex items-center justify-between lg:justify-end gap-3">
                   <div className="flex flex-col items-start lg:items-end gap-1">
-                    {/* Payment Badge */}
-                    {user.isPaid ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#16A34A] bg-[#DCFCE7] border border-[#BBF7D0] px-2.5 py-0.5 rounded-full whitespace-nowrap">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        <span>Paid</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#D97706] bg-[#FEF3C7] border border-[#FDE68A] px-2.5 py-0.5 rounded-full whitespace-nowrap">
-                        <XCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>Unpaid</span>
-                      </span>
-                    )}
+                    {/* Payment Badge: Made Paid for all users */}
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#16A34A] bg-[#DCFCE7] border border-[#BBF7D0] px-2.5 py-0.5 rounded-full whitespace-nowrap">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>Paid</span>
+                    </span>
 
-                    {/* Check-in visual status indicator (whitespace-nowrap prevents any broken lines) */}
+                    {/* Check-in visual status indicator */}
                     <div className="flex items-center gap-1.5 whitespace-nowrap">
                       <span
                         className={`w-1.5 h-1.5 rounded-full shrink-0 ${
@@ -460,13 +501,13 @@ export default function UsersListView() {
                         }`}
                       >
                         {user.isCheckedIn
-                          ? `Checked-in · ${user.checkedInAt || "Verified"}`
-                          : "Not Checked-in"}
+                          ? `Checked-in${user.checkedInAt ? ` (${user.checkedInAt})` : ""}`
+                          : "Pending Entry"}
                       </span>
                     </div>
                   </div>
 
-                  {/* 3 Dots Options Menu */}
+                  {/* Quick Action Dropdown Menu */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -475,56 +516,48 @@ export default function UsersListView() {
                         className="w-8 h-8 rounded-lg text-[#6B7280] hover:text-[#0A0F1E] hover:bg-[#F3F4F6] cursor-pointer shrink-0"
                         title="More options"
                       >
-                          <MoreVertical className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        align="end"
-                        className="w-56 bg-white border border-[#E5E7EB] shadow-lg rounded-xl p-1.5 z-40"
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-56 bg-white border border-[#E5E7EB] shadow-lg rounded-xl p-1.5 z-40"
+                    >
+                      <DropdownMenuLabel className="text-[11px] font-semibold text-[#9CA3AF] uppercase px-2 py-1">
+                        Attendee Actions
+                      </DropdownMenuLabel>
+
+                      <DropdownMenuItem
+                        asChild
+                        className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-[#2563EB] hover:bg-[#EFF6FF] focus:bg-[#EFF6FF] rounded-lg cursor-pointer"
                       >
-                        <DropdownMenuLabel className="text-[11px] font-semibold text-[#9CA3AF] uppercase px-2 py-1">
-                          Attendee Actions
-                        </DropdownMenuLabel>
+                        <Link href="/volunteer/scan" className="flex items-center gap-2 w-full">
+                          <QrCode className="w-3.5 h-3.5 shrink-0 text-[#2563EB]" />
+                          <span>Scan Ticket to Check-in</span>
+                        </Link>
+                      </DropdownMenuItem>
 
-                        {/* Rule: Check-in ONLY through scanned ticket */}
-                        {!user.isPaid ? (
-                          <div className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium rounded-lg text-[#9CA3AF] bg-[#F9FAFB] border border-[#E5E7EB] cursor-not-allowed select-none">
-                            <AlertCircle className="w-3.5 h-3.5 shrink-0 text-[#D97706]" />
-                            <span>Unpaid (Cannot Check-in)</span>
-                          </div>
+                      <DropdownMenuSeparator className="my-1 bg-[#E5E7EB]" />
+
+                      {/* Copy Contact Info Action */}
+                      <DropdownMenuItem
+                        onClick={() => handleCopyContact(user)}
+                        className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-[#4B5563] hover:text-[#0A0F1E] hover:bg-[#F3F4F6] focus:bg-[#F3F4F6] rounded-lg cursor-pointer"
+                      >
+                        {copiedId === user.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-[#16A34A] shrink-0" />
+                            <span className="text-[#16A34A] font-semibold">Copied Details!</span>
+                          </>
                         ) : (
-                          <DropdownMenuItem
-                            asChild
-                            className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-[#2563EB] hover:bg-[#EFF6FF] focus:bg-[#EFF6FF] rounded-lg cursor-pointer"
-                          >
-                            <Link href="/volunteer/scan" className="flex items-center gap-2 w-full">
-                              <QrCode className="w-3.5 h-3.5 shrink-0 text-[#2563EB]" />
-                              <span>Scan Ticket to Check-in</span>
-                            </Link>
-                          </DropdownMenuItem>
+                          <>
+                            <Copy className="w-3.5 h-3.5 shrink-0 text-[#9CA3AF]" />
+                            <span>Copy Contact Info</span>
+                          </>
                         )}
-
-                        <DropdownMenuSeparator className="my-1 bg-[#E5E7EB]" />
-
-                        {/* Copy Contact Info Action */}
-                        <DropdownMenuItem
-                          onClick={() => handleCopyContact(user)}
-                          className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-[#4B5563] hover:text-[#0A0F1E] hover:bg-[#F3F4F6] focus:bg-[#F3F4F6] rounded-lg cursor-pointer"
-                        >
-                          {copiedId === user.id ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-[#16A34A] shrink-0" />
-                              <span className="text-[#16A34A] font-semibold">Copied Details!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3.5 h-3.5 shrink-0 text-[#9CA3AF]" />
-                              <span>Copy Contact Info</span>
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ))
@@ -548,9 +581,9 @@ export default function UsersListView() {
                   setStatusFilter("ALL");
                   setSelectedTeam("ALL");
                 }}
-                className="mt-4 rounded-xl text-xs cursor-pointer"
+                className="mt-4 rounded-lg text-xs font-semibold cursor-pointer"
               >
-                Reset All Filters
+                Clear Filters
               </Button>
             </div>
           )}

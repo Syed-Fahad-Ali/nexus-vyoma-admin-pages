@@ -10,7 +10,7 @@ import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
 interface VolunteerSidebarProps {
   eventId?: string;
   eventName?: string;
-  participationType?: "Solo" | "Squad";
+  participationType?: "individual" | "team" | "Solo" | "Squad";
   isMobile?: boolean;
   onToggle?: () => void;
 }
@@ -162,14 +162,24 @@ export default function VolunteerSidebar({
           {participationType && (
             <div className="text-[12px] truncate text-[#4B5563]">
               <span className="font-medium text-[#0A0F1E]">Participation Type:</span>{" "}
-              <span className="font-semibold text-[#FF6A00]">{participationType}</span>
+              <span className="font-semibold text-[#FF6A00] capitalize">
+                {participationType === "individual" || participationType === "Solo" ? "individual" : "team"}
+              </span>
             </div>
           )}
         </div>
 
         {/* Main Navigation Card - Extended to bottom of container */}
         <div className="rounded-xl border border-[#E5E7EB] bg-white p-2.5 shadow-xs flex flex-col gap-1.5 flex-1 min-h-0 overflow-y-auto">
-          {navItems.map((item) => {
+          {navItems
+            .filter((item) => {
+              const isIndividual = participationType === "individual" || participationType === "Solo";
+              if (item.label === "Team" && isIndividual) {
+                return false;
+              }
+              return true;
+            })
+            .map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   QrCode,
   CheckCircle2,
@@ -17,12 +18,20 @@ import TeamCardGrid from "../dashboard/TeamCardGrid";
 import { ScannedMember } from "@/lib/dummy-scan-data";
 
 export default function TeamDashboardView() {
+  const router = useRouter();
   const { selectedEvent, selectedEventId } = useVolunteerEvent();
 
   const [squads, setSquads] = useState<FestivalSquad[]>([]);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [recentScans, setRecentScans] = useState<ScannedMember[]>([]);
   const [actionMessage, setActionMessage] = useState<{ text: string; isError?: boolean } | null>(null);
+
+  useEffect(() => {
+    if (selectedEvent?.participantType === "individual") {
+      router.replace("/volunteer/users");
+      return;
+    }
+  }, [selectedEvent, router]);
 
   useEffect(() => {
     if (!selectedEventId) return;
