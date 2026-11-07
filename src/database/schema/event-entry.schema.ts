@@ -8,7 +8,7 @@ const eventEntrySchema = new mongoose.Schema({
     },
     attendee: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        ref: "RegisterUser",
         required: true
     },
     event_id: {
