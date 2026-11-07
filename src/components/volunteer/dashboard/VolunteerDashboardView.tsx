@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   QrCode,
   CheckCircle2,
@@ -8,41 +9,74 @@ import {
   AlertTriangle,
   Users,
   ShieldCheck,
+  AlertCircle,
+  RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useVolunteerEvent } from "../context/VolunteerEventContext";
-import { volunteerService } from "@/services/volunteerService";
+import { volunteerService, VolunteerApiError } from "@/services/volunteerService";
 import { EventStats } from "@/services/types/volunteer";
 import EchartsParticipantAreaChart from "./EchartsParticipantAreaChart";
 import ScanModal from "../scan/ScanModal";
 import { ScannedMember } from "@/lib/dummy-scan-data";
 
 export default function VolunteerDashboardView() {
+  const router = useRouter();
   const { selectedEvent, selectedEventId } = useVolunteerEvent();
 
   // Scoped Event Analytics States
   const [stats, setStats] = useState<EventStats | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<{
+    message: string;
+    redirect?: boolean;
+    redirectUrl?: string | null;
+  } | null>(null);
   const [activeChartTab, setActiveChartTab] = useState<"CHECKED_IN" | "PENDING" | "TOTAL">("CHECKED_IN");
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [recentScans, setRecentScans] = useState<ScannedMember[]>([]);
   const [actionMessage, setActionMessage] = useState<{ text: string; isError?: boolean } | null>(null);
 
+  const loadAnalytics = async () => {
+    if (!selectedEventId) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const fetchedStats = await volunteerService.getEventStats(selectedEventId);
+      setStats(fetchedStats);
+    } catch (err) {
+      if (err instanceof VolunteerApiError && err.redirect) {
+        router.replace(err.redirectUrl || "/");
+        return;
+      }
+      console.error("Failed to load dashboard analytics:", err);
+      if (err instanceof VolunteerApiError) {
+        setError({
+          message: err.message,
+          redirect: err.redirect,
+          redirectUrl: err.redirectUrl,
+        });
+      } else {
+        setError({
+          message:
+            err instanceof Error
+              ? err.message
+              : "Failed to load event telemetry. Please check your network connection.",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Load scoped analytics stats whenever selected event changes
   useEffect(() => {
-    if (!selectedEventId) return;
-
-    let isMounted = true;
-    async function loadAnalytics() {
-      const fetchedStats = await volunteerService.getEventStats(selectedEventId);
-      if (isMounted) {
-        setStats(fetchedStats);
-      }
-    }
     loadAnalytics();
-
-    return () => {
-      isMounted = false;
-    };
   }, [selectedEventId]);
 
   // QR Scan Callback
@@ -52,12 +86,69 @@ export default function VolunteerDashboardView() {
     setTimeout(() => setActionMessage(null), 3000);
   };
 
-  if (!selectedEvent || !stats) {
+  if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-[#FF6A00] border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-medium text-[#6B7280]">Loading event analytics...</span>
+          <span className="text-xs font-medium text-[#6B7280]">Loading live event telemetry...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-16">
+        <div className="max-w-md w-full bg-white border border-[#FEE2E2] rounded-2xl p-6 sm:p-8 shadow-xs text-center flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full bg-[#FEF2F2] border border-[#FCA5A5]/40 flex items-center justify-center text-[#DC2626] mb-4">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-[#0A0F1E]">
+            Unable to Load Dashboard Telemetry
+          </h2>
+          <p className="text-xs text-[#6B7280] mt-2 leading-relaxed">
+            {error.message || "An error occurred while communicating with the analytics service."}
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3 w-full">
+            <button
+              onClick={() => loadAnalytics()}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0A0F1E] text-white hover:bg-[#1E293B] text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Try Again</span>
+            </button>
+            <button
+              onClick={() => router.push("/events")}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#F8F9FA] text-[#4B5563] hover:text-[#0A0F1E] hover:bg-[#E5E7EB] border border-[#E5E7EB] text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Events</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selectedEvent || !stats) {
+    return (
+      <div className="flex-1 flex items-center justify-center py-20">
+        <div className="max-w-md text-center p-8 bg-white border border-[#E5E7EB] rounded-2xl shadow-xs">
+          <h2 className="text-base font-bold text-[#0A0F1E]">No Event Selected</h2>
+          <p className="text-xs text-[#6B7280] mt-1.5 leading-relaxed">
+            Please return to the events directory and select an active event to view its dashboard telemetry.
+          </p>
+          <div className="mt-4">
+            <button
+              onClick={() => router.push("/events")}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-[#0A0F1E] text-white hover:bg-[#1E293B] text-xs font-semibold transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Go to Events</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -242,6 +333,7 @@ export default function VolunteerDashboardView() {
           <EchartsParticipantAreaChart
             activeTab={activeChartTab}
             eventId={selectedEvent.id}
+            stats={stats}
           />
 
           {/* Graph Legend */}

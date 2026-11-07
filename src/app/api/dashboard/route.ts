@@ -4,37 +4,62 @@ import EnrolledTeamEvent from "@/database/schema/enrolled-team-event.schema";
 import EventEntry from "@/database/schema/event-entry.schema";
 import EventTeamMember from "@/database/schema/event-team-member.schema";
 import Event from "@/database/schema/event.schema";
+import { currentUser, auth } from "@clerk/nextjs/server";
 import { NextResponse, NextRequest } from "next/server";
 
 export async function GET(request: NextRequest) {
     try {
-        // 1. using auth() to get the current user
-        // 2. get eventId from request header
-        // 3. Now seach the email and event of current user in the database and gets his coordination events
-        /**
-            - Now for testing we are using "syedaliquadri100@gmail.com" email
-            - Now for testing we are using "64f3e7c1b5e4c8a1d2f3e7c1" eventId
-        **/
+        const { userId, sessionId } = await auth();
+        const eventId = request.headers.get("eventId");
+
+        if (!userId || !sessionId) {
+            return NextResponse.json(
+                {
+                    message: "Unauthorized",
+                    data: null,
+                    error: "UNAUTHORIZED",
+                    redirect: true,
+                    redirectUrl: "/",
+                },
+                { status: 401 }
+            );
+        }
+
+        const user = await currentUser()
+
+        if (!user) {
+            return NextResponse.json(
+                {
+                    message: "User not found",
+                    data: null,
+                    error: "USER_NOT_FOUND",
+                    redirect: true,
+                    redirectUrl: "/",
+                },
+                { status: 401 }
+            );
+        }
 
         await connectToDatabase();
 
-        const email = "syedaliquadri100@gmail.com"
-        const eventId = "6ad087ce3f54d0d1e8dfe1e0" // individual eventId for testing
-        // const eventId = "6ad1f075829e211806d4cd75" // team eventId for testing
+        const email = user?.emailAddresses[0]?.emailAddress?.trim();
 
-        let userData = await EventTeamMember.findOne({ email });
+        let userData = await EventTeamMember.findOne({
+            email: email ? { $regex: new RegExp(`^${email}$`, "i") } : "",
+            event_id: eventId,
+        });
+
         if (!userData) {
-            // If no user data is found, first delete the user session and then redirect to the login page
             return NextResponse.json({
                 message: "No user data found",
                 data: null,
                 error: "No user data found",
                 redirect: true,
                 redirectUrl: "/",
-            }, { status: 404 })
+            }, { status: 403 })
         }
 
-        if (userData.event_id.toString().includes(eventId) === false) {
+        if (userData.event_id.toString().includes(eventId || "") === false) {
             return NextResponse.json({
                 message: "User is not associated with this event",
                 data: null,
@@ -45,15 +70,24 @@ export async function GET(request: NextRequest) {
         }
 
         const event = await Event.findById(eventId);
+        if (!event) {
+            return NextResponse.json({
+                message: "Event not found",
+                data: null,
+                error: "Event not found",
+                redirect: false,
+                redirectUrl: null,
+            }, { status: 404 });
+        }
 
         const crewMembers = await EventTeamMember.countDocuments({ event_id: eventId });
         const checkInUsersCount = await EventEntry.countDocuments({ event_id: eventId });
 
-        let enrolledEventCount;
+        let enrolledEventCount = 0;
 
         if (event.participants_type === "individual") {
             enrolledEventCount = await EnrolledIndividualEvent.countDocuments({ event_id: eventId });
-        } else if (event.event_id.participants_type === "team") {
+        } else if (event.participants_type === "team") {
             enrolledEventCount = await EnrolledTeamEvent.countDocuments({ event_id: eventId });
         } else {
             return NextResponse.json({

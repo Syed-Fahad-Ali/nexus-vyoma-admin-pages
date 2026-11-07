@@ -2,15 +2,18 @@
 
 import React, { useEffect, useRef } from "react";
 import * as echarts from "echarts";
+import { EventStats } from "@/services/types/volunteer";
 
 interface EchartsParticipantAreaChartProps {
   activeTab: "CHECKED_IN" | "PENDING" | "TOTAL";
   eventId?: string;
+  stats?: EventStats | null;
 }
 
 export default function EchartsParticipantAreaChart({
   activeTab,
   eventId = "evt-codecraft-2026",
+  stats,
 }: EchartsParticipantAreaChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
@@ -26,84 +29,74 @@ export default function EchartsParticipantAreaChart({
 
     const chart = chartInstance.current;
 
-    // Get event-scoped numbers
-    const getEventBase = () => {
-      if (eventId === "evt-robowars-2026") {
-        return { total: 128, checked: 96, mult: 0.1 };
-      }
-      if (eventId === "evt-webathon-2026") {
-        return { total: 240, checked: 180, mult: 0.2 };
-      }
-      return { total: 1450, checked: 940, mult: 1 };
-    };
-
-    const base = getEventBase();
+    const total = stats?.totalParticipants ?? 0;
+    const checked = stats?.checkedInCount ?? 0;
+    const pending = stats?.pendingCount ?? Math.max(0, total - checked);
 
     // Get series configuration based on selected metric tab
     const getConfig = () => {
       switch (activeTab) {
         case "PENDING": {
-          const pending = Math.max(0, base.total - base.checked);
           return {
             primaryData: [
-              Math.round(base.total * 0.95),
-              Math.round(base.total * 0.82),
-              Math.round(base.total * 0.55),
+              Math.round(total * 0.95),
+              Math.round(total * 0.8),
+              Math.round(total * 0.5),
               pending,
             ],
             comparisonData: [
-              Math.round(base.total * 0.98),
-              Math.round(base.total * 0.88),
-              Math.round(base.total * 0.65),
-              Math.round(pending * 1.2),
+              Math.round(total * 0.98),
+              Math.round(total * 0.85),
+              Math.round(total * 0.6),
+              Math.round(pending * 1.15),
             ],
             label: "Pending Entries",
             lineColor: "#D97706",
             gradStart: "rgba(217, 119, 6, 0.35)",
             gradEnd: "rgba(217, 119, 6, 0.02)",
-            maxVal: Math.round(base.total * 1.05),
+            maxVal: Math.max(10, Math.round((total || 10) * 1.05)),
           };
         }
         case "TOTAL":
           return {
             primaryData: [
-              Math.round(base.total * 0.82),
-              Math.round(base.total * 0.9),
-              Math.round(base.total * 0.97),
-              base.total,
+              Math.round(total * 0.8),
+              Math.round(total * 0.88),
+              Math.round(total * 0.95),
+              total,
             ],
             comparisonData: [
-              Math.round(base.total * 0.75),
-              Math.round(base.total * 0.82),
-              Math.round(base.total * 0.92),
-              Math.round(base.total * 0.96),
+              Math.round(total * 0.75),
+              Math.round(total * 0.82),
+              Math.round(total * 0.9),
+              Math.round(total * 0.96),
             ],
             label: "Total Enrolled",
             lineColor: "#0A0F1E",
             gradStart: "rgba(10, 15, 30, 0.30)",
             gradEnd: "rgba(10, 15, 30, 0.02)",
-            maxVal: Math.round(base.total * 1.05),
+            maxVal: Math.max(10, Math.round((total || 10) * 1.05)),
           };
         case "CHECKED_IN":
         default:
           return {
             primaryData: [
-              Math.round(base.checked * 0.05),
-              Math.round(base.checked * 0.22),
-              Math.round(base.checked * 0.66),
-              base.checked,
+              Math.round(checked * 0.1),
+              Math.round(checked * 0.3),
+              Math.round(checked * 0.65),
+              checked,
             ],
             comparisonData: [
-              Math.round(base.checked * 0.02),
-              Math.round(base.checked * 0.16),
-              Math.round(base.checked * 0.45),
-              Math.round(base.checked * 0.75),
+              Math.round(checked * 0.05),
+              Math.round(checked * 0.2),
+              Math.round(checked * 0.45),
+              Math.round(checked * 0.75),
             ],
             label: "Checked-in",
             lineColor: "#2563EB",
             gradStart: "rgba(37, 99, 235, 0.38)",
             gradEnd: "rgba(37, 99, 235, 0.02)",
-            maxVal: Math.round(base.checked * 1.15),
+            maxVal: Math.max(10, Math.round((checked || total || 10) * 1.15)),
           };
       }
     };
@@ -159,7 +152,7 @@ export default function EchartsParticipantAreaChart({
       xAxis: {
         type: "category",
         boundaryGap: false,
-        data: ["Day 1 Morning", "Day 1 Afternoon", "Day 2 Morning", "Live"],
+        data: stats?.timeSeries?.dates || ["Day 1 Morning", "Day 1 Afternoon", "Day 2 Morning", "Live"],
         axisLine: {
           lineStyle: { color: "#E2E8F0" },
         },
@@ -237,7 +230,7 @@ export default function EchartsParticipantAreaChart({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [activeTab, eventId]);
+  }, [activeTab, eventId, stats]);
 
   useEffect(() => {
     return () => {
