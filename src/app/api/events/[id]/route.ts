@@ -4,7 +4,7 @@ import Event from "@/database/schema/event.schema";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { NextResponse, NextRequest } from "next/server";
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
         const { userId, sessionId } = await auth();
 
