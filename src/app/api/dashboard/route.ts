@@ -86,9 +86,9 @@ export async function GET(request: NextRequest) {
         let enrolledEventCount = 0;
 
         if (event.participants_type === "individual") {
-            enrolledEventCount = await EnrolledIndividualEvent.countDocuments({ event_id: eventId });
+            enrolledEventCount = await EnrolledIndividualEvent.countDocuments({ event_id: eventId, isPaid: true });
         } else if (event.participants_type === "team") {
-            enrolledEventCount = await EnrolledTeamEvent.countDocuments({ event_id: eventId });
+            enrolledEventCount = await EnrolledTeamEvent.countDocuments({ event_id: eventId, isPaid: true });
         } else {
             return NextResponse.json({
                 message: "Invalid participants_type",
