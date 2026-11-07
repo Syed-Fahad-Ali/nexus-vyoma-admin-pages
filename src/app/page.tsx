@@ -1,28 +1,81 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth, useSignIn } from "@clerk/nextjs";
+import type { OAuthStrategy } from "@clerk/nextjs/types";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
 import GoogleIcon from "@/components/brand/GoogleIcon";
 
+function getAuthenticationErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const clerkError = error as {
+      errors?: Array<{ longMessage?: string; message?: string }>;
+      longMessage?: string;
+      message?: string;
+    };
+
+    return (
+      clerkError.errors?.[0]?.longMessage ||
+      clerkError.errors?.[0]?.message ||
+      clerkError.longMessage ||
+      clerkError.message ||
+      "Only invited members can sign in."
+    );
+  }
+
+  return "Only invited members can sign in.";
+}
+
 export default function HomePage() {
   const router = useRouter();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { signIn, isLoaded: isSignInLoaded } = useSignIn();
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      router.replace("/events");
+    }
+  }, [isLoaded, isSignedIn, router]);
+
   const handleGoogleSignIn = async () => {
+    if (!isSignInLoaded || !signIn) return;
+
     setIsLoading(true);
     setMessage(null);
-
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      setMessage("Authenticated. Directing to assigned events...");
-      router.push("/events");
-    } catch {
-      setMessage("Authentication failed. Please try again.");
+      const { error } = await signIn.sso({
+        strategy: "oauth_google" as OAuthStrategy,
+        redirectCallbackUrl: "/events",
+        redirectUrl: "/events",
+      });
+
+      if (error) {
+        console.error("Clerk OAuth error:", error);
+        setMessage(getAuthenticationErrorMessage(error));
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error("Authentication failed:", error);
+      setMessage(getAuthenticationErrorMessage(error));
       setIsLoading(false);
     }
   };
+
+  // Avoid showing sign-in UI to already-authenticated users while redirecting
+  if (!isLoaded || isSignedIn) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-white">
+        <div className="w-8 h-8 border-2 border-[#FF6A00] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full flex bg-white text-[#0A0F1E] antialiased selection:bg-[#FF6A00]/10 selection:text-[#0A0F1E]">
@@ -100,11 +153,21 @@ export default function HomePage() {
             </p>
           </div>
 
+          {/* Feedback message if any */}
+          {message && (
+            <p
+              className="mb-3 text-xs text-center text-[#FF6A00] animate-fade-in font-medium"
+              role="alert"
+            >
+              {message}
+            </p>
+          )}
+
           {/* Continue with Google Button */}
           <button
             type="button"
             onClick={handleGoogleSignIn}
-            disabled={isLoading}
+            disabled={isLoading || !isSignInLoaded}
             aria-label="Continue with Google"
             className="w-full flex items-center justify-center gap-3 h-12 px-4 rounded-xl border border-[#E5E7EB] bg-white text-[#1F2937] text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:bg-[#F9FAFB] hover:border-[#D1D5DB] active:bg-[#F3F4F6] focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/20 focus:border-[#FF6A00] transition-all duration-150 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
           >
@@ -139,13 +202,6 @@ export default function HomePage() {
               </>
             )}
           </button>
-
-          {/* Feedback message if any */}
-          {message && (
-            <p className="mt-3 text-xs text-center text-[#FF6A00] animate-fade-in font-medium">
-              {message}
-            </p>
-          )}
 
           {/* Invite notice */}
           <div className="flex items-center gap-1.5 mt-4 text-[#9CA3AF]">
