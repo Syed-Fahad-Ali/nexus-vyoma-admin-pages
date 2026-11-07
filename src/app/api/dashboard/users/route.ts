@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
             const teamLeaders = await RegisterUser.find({ _id: { $in: enrolledUsers.map(user => user.team_leader_register_user_id) } });
             const teamMembersByEmail = await RegisterUser.find({
                 email: {
-                    $in: enrolledUsers.flatMap((enrolledUser) => enrolledUser.team_emails),
+                    $in: enrolledUsers.flatMap((enrolledUser) => enrolledUser.team_emails ?? []),
                 },
             });
             const users = [...teamLeaders, ...teamMembersByEmail]
