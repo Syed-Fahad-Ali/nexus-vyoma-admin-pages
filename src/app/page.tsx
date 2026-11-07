@@ -1,72 +1,20 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, useSignIn } from "@clerk/nextjs";
-import type { OAuthStrategy } from "@clerk/nextjs/types";
+import { useAuth } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
 import GoogleIcon from "@/components/brand/GoogleIcon";
-
-function getAuthenticationErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message) {
-    return error.message;
-  }
-
-  if (typeof error === "object" && error !== null) {
-    const clerkError = error as {
-      errors?: Array<{ longMessage?: string; message?: string }>;
-      longMessage?: string;
-      message?: string;
-    };
-
-    return (
-      clerkError.errors?.[0]?.longMessage ||
-      clerkError.errors?.[0]?.message ||
-      clerkError.longMessage ||
-      clerkError.message ||
-      "Only invited members can sign in."
-    );
-  }
-
-  return "Only invited members can sign in.";
-}
 
 export default function HomePage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
-  const { signIn, isLoaded: isSignInLoaded } = useSignIn();
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       router.replace("/events");
     }
   }, [isLoaded, isSignedIn, router]);
-
-  const handleGoogleSignIn = async () => {
-    if (!isSignInLoaded || !signIn) return;
-
-    setIsLoading(true);
-    setMessage(null);
-    try {
-      const { error } = await signIn.sso({
-        strategy: "oauth_google" as OAuthStrategy,
-        redirectCallbackUrl: "/events",
-        redirectUrl: "/events",
-      });
-
-      if (error) {
-        console.error("Clerk OAuth error:", error);
-        setMessage(getAuthenticationErrorMessage(error));
-        setIsLoading(false);
-      }
-    } catch (error) {
-      console.error("Authentication failed:", error);
-      setMessage(getAuthenticationErrorMessage(error));
-      setIsLoading(false);
-    }
-  };
 
   // Avoid showing sign-in UI to already-authenticated users while redirecting
   if (!isLoaded || isSignedIn) {
@@ -153,54 +101,15 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Feedback message if any */}
-          {message && (
-            <p
-              className="mb-3 text-xs text-center text-[#FF6A00] animate-fade-in font-medium"
-              role="alert"
-            >
-              {message}
-            </p>
-          )}
-
           {/* Continue with Google Button */}
           <button
             type="button"
-            onClick={handleGoogleSignIn}
-            disabled={isLoading || !isSignInLoaded}
+            onClick={() => router.push("/sign-in")}
             aria-label="Continue with Google"
             className="w-full flex items-center justify-center gap-3 h-12 px-4 rounded-xl border border-[#E5E7EB] bg-white text-[#1F2937] text-[14px] font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:bg-[#F9FAFB] hover:border-[#D1D5DB] active:bg-[#F3F4F6] focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/20 focus:border-[#FF6A00] transition-all duration-150 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
           >
-            {isLoading ? (
-              <span className="flex items-center gap-2 text-xs text-[#6B7280]">
-                <svg
-                  className="animate-spin h-4 w-4 text-[#FF6A00]"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8H4z"
-                  />
-                </svg>
-                Connecting...
-              </span>
-            ) : (
-              <>
-                <GoogleIcon size={18} />
-                <span>Continue with Google</span>
-              </>
-            )}
+            <GoogleIcon size={18} />
+            <span>Continue with Google</span>
           </button>
 
           {/* Invite notice */}
