@@ -10,35 +10,35 @@ import EnrolledTeamEvent from "@/database/schema/enrolled-team-event.schema";
 
 export async function GET(request: NextRequest) {
     try {
-        // const { userId, sessionId } = await auth();
+        const { userId, sessionId } = await auth();
 
-        // if (!userId || !sessionId) {
-        //     return NextResponse.json(
-        //         {
-        //             message: "Unauthorized",
-        //             data: null,
-        //             error: "UNAUTHORIZED",
-        //             redirect: true,
-        //             redirectUrl: "/",
-        //         },
-        //         { status: 401 }
-        //     );
-        // }
+        if (!userId || !sessionId) {
+            return NextResponse.json(
+                {
+                    message: "Unauthorized",
+                    data: null,
+                    error: "UNAUTHORIZED",
+                    redirect: true,
+                    redirectUrl: "/",
+                },
+                { status: 401 }
+            );
+        }
 
-        // const user = await currentUser()
+        const user = await currentUser()
 
-        // if (!user) {
-        //     return NextResponse.json(
-        //         {
-        //             message: "User not found",
-        //             data: null,
-        //             error: "USER_NOT_FOUND",
-        //             redirect: true,
-        //             redirectUrl: "/",
-        //         },
-        //         { status: 401 }
-        //     );
-        // }
+        if (!user) {
+            return NextResponse.json(
+                {
+                    message: "User not found",
+                    data: null,
+                    error: "USER_NOT_FOUND",
+                    redirect: true,
+                    redirectUrl: "/",
+                },
+                { status: 401 }
+            );
+        }
 
         await connectToDatabase();
         await RegisterUser;
@@ -46,7 +46,6 @@ export async function GET(request: NextRequest) {
         // const email = user?.emailAddresses[0]?.emailAddress?.trim();
         const email = "syedaliquadri100@gmail.com"
         const eventId = request.headers.get("event-id");
-        console.log("Event ID:", eventId);
 
         const userData = await EventTeamMember.findOne({
             email: email,
@@ -54,8 +53,8 @@ export async function GET(request: NextRequest) {
         })
 
         if (!userData) {
-            // const clerk = await clerkClient();
-            // await clerk.sessions.revokeSession(sessionId);
+            const clerk = await clerkClient();
+            await clerk.sessions.revokeSession(sessionId);
 
             return NextResponse.json({
                 message: "No user data found",
@@ -107,8 +106,6 @@ export async function GET(request: NextRequest) {
                     users: []
                 }
             }
-
-            console.log("Enrolled Users:", enrolledUsers.flatMap((enrolledUser) => enrolledUser.team_emails));
 
             const teamLeaders = await RegisterUser.find({ _id: { $in: enrolledUsers.map(user => user.team_leader_register_user_id) } });
             const teamMembersByEmail = await RegisterUser.find({
