@@ -898,6 +898,63 @@ export const volunteerService = {
       };
     });
   },
+
+  /**
+   * Retrieves crew/volunteers assigned to an event from /api/volunteer/crew-members.
+   */
+  async getCrewMembers(eventId: string): Promise<import("@/lib/dummy-team-data").TeamMember[]> {
+    const response = await fetch("/api/volunteer/crew-members", {
+      method: "GET",
+      headers: {
+        eventId: eventId,
+        "event-id": eventId,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    const result = await response.json().catch(() => null);
+
+    // If 404 with "No crew members found", return empty array gracefully
+    if (result?.error === "No crew members found" || (response.status === 404 && !result?.redirect)) {
+      return [];
+    }
+
+    if (!response.ok || !result || result.error) {
+      const errorMessage =
+        result?.error ||
+        result?.message ||
+        `Failed to fetch crew members (HTTP ${response.status})`;
+
+      throw new VolunteerApiError(
+        errorMessage,
+        response.status,
+        result?.redirect ?? false,
+        result?.redirectUrl ?? null
+      );
+    }
+
+    const data = result.data || {};
+    const crewMembers: any[] = data.crewMembers || [];
+
+    return crewMembers.map((member: any) => {
+      const id = String(member._id || member.id || "");
+      const fullName = member.full_name?.trim();
+      const email = member.email?.trim() || "";
+      const name = fullName || (email ? email.split("@")[0] : "Crew Member");
+
+      return {
+        id,
+        name,
+        email,
+        role: "Crew Volunteer",
+        department: "Event Operations",
+        phone: "—",
+        shiftTime: "Assigned Shift",
+        status: "Active on Duty" as const,
+      };
+    });
+  },
 };
 
 // ============================================================================
