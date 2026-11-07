@@ -43,14 +43,13 @@ export async function GET(request: NextRequest) {
         await connectToDatabase();
         await RegisterUser;
 
-        // const email = user?.emailAddresses[0]?.emailAddress?.trim();
-        const email = "syedaliquadri100@gmail.com"
-        const eventId = request.headers.get("event-id");
+        const email = user?.emailAddresses[0]?.emailAddress?.trim();
+        const eventId = request.headers.get("event-id") || request.headers.get("eventId");
 
         const userData = await EventTeamMember.findOne({
-            email: email,
-            event_id: eventId
-        })
+            email: email ? { $regex: new RegExp(`^${email}$`, "i") } : "",
+            event_id: eventId,
+        });
 
         if (!userData) {
             const clerk = await clerkClient();
