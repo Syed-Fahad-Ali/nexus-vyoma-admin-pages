@@ -38,11 +38,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
         await connectToDatabase();
 
-        // const email = user?.emailAddresses[0]?.emailAddress?.trim();
-        const email = "syedaliquadri100@gmail.com"
+        const email = user?.emailAddresses[0]?.emailAddress?.trim();
         const { id: eventId } = await params;
-
-        console.log("Event ID:", eventId);
 
         const userData = await EventTeamMember.findOne({
             email: email,
@@ -75,7 +72,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         }
 
         return NextResponse.json({
-            message: "Events fetched successfully",
+            message: "Event fetched successfully",
             data: {
                 event,
                 userData
@@ -87,7 +84,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     } catch (error) {
         return NextResponse.json({
-            message: "Failed to fetch events",
+            message: "Failed to fetch event",
             data: null,
             error: error instanceof Error ? error.message : "Unknown error",
             redirect: true,
