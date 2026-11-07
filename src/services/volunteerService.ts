@@ -810,11 +810,93 @@ export const volunteerService = {
   },
 
   /**
-   * Retrieves squads registered for an event
+   * Retrieves squads registered for an event from /api/dashboard/team-users.
    */
   async getEventSquads(eventId: string): Promise<FestivalSquad[]> {
-    await new Promise((resolve) => setTimeout(resolve, 80));
-    return MOCK_SQUADS[eventId] || MOCK_SQUADS["default"] || [];
+    const response = await fetch("/api/dashboard/team-users", {
+      method: "GET",
+      headers: {
+        "event-id": eventId,
+        eventId: eventId,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    const result = await response.json().catch(() => null);
+
+    // If no enrolled team users, return empty array gracefully
+    if (result?.error === "NO_ENROLLED_TEAM_USERS") {
+      return [];
+    }
+
+    if (!response.ok || !result || result.error) {
+      const errorMessage =
+        result?.error ||
+        result?.message ||
+        `Failed to fetch team squads (HTTP ${response.status})`;
+
+      throw new VolunteerApiError(
+        errorMessage,
+        response.status,
+        result?.redirect ?? false,
+        result?.redirectUrl ?? null
+      );
+    }
+
+    const data = result.data || {};
+    const event = data.event || {};
+    const enrolledTeamUsers: any[] = data.enrolledTeamUsers || [];
+
+    return enrolledTeamUsers.map((item: any, idx: number) => {
+      const enrollment = item.enrolledTeamUser || {};
+      const leaderObj = item.teamLeaderDetails?.teamLeader;
+      const leaderCheckedIn = Boolean(item.teamLeaderDetails?.checkedIn);
+
+      const leaderMember = {
+        name: leaderObj?.full_name || "Team Leader",
+        email: leaderObj?.email || "",
+        phone: leaderObj?.phone_number || "—",
+        role: "Leader" as const,
+        isCheckedIn: leaderCheckedIn,
+        checkedInAt: leaderCheckedIn ? "Checked-in" : undefined,
+      };
+
+      const otherMembers = (item.teamMembersDetails || []).map((m: any) => {
+        const memObj = m.teamMember;
+        const memCheckedIn = Boolean(m.checkedIn);
+        return {
+          name: memObj?.full_name || "Member",
+          email: memObj?.email || "",
+          phone: memObj?.phone_number || "—",
+          role: "Member" as const,
+          isCheckedIn: memCheckedIn,
+          checkedInAt: memCheckedIn ? "Checked-in" : undefined,
+        };
+      });
+
+      const allMembers = [leaderMember, ...otherMembers];
+      const isFullyCheckedIn =
+        allMembers.length > 0 && allMembers.every((m) => m.isCheckedIn);
+
+      const teamId = String(enrollment._id || `team-${idx + 1}`);
+      const teamNumber = `SQ-${teamId.slice(-4).toUpperCase()}`;
+
+      return {
+        id: teamId,
+        teamNumber,
+        teamName: enrollment.team_name || `Team ${teamNumber}`,
+        leader: {
+          name: leaderObj?.full_name || "Team Leader",
+          email: leaderObj?.email || "",
+          phone: leaderObj?.phone_number || "—",
+        },
+        teamSize: Number(enrollment.team_size || allMembers.length),
+        track: event.category || event.name || "Fest Squad",
+        members: allMembers,
+        isCheckedIn: isFullyCheckedIn,
+      };
+    });
   },
 };
 
