@@ -1,6 +1,6 @@
 import { SendRawEmailCommand } from "@aws-sdk/client-ses";
 import { sesClient } from "../aws/client";
-import { uploadImageToS3, sendEmailWithSES } from "../aws/helper.aws";
+import { uploadImageToS3, sendEmailWithSES } from "@/utilities/aws/helper.aws";
 import EmailSchema from "@/database/schema/email.schema";
 import { connectToDatabase } from "@/database/db";
 
@@ -60,27 +60,6 @@ function buildMimeWithAttachment(
 }
 
 export async function sendQREmail(to: string, user_name: string, qrCode: Buffer) {
-    try {
-        await connectToDatabase();
-
-        // Enforce single-send: Ticket QR pass will be sent only once per user/email
-        const alreadySent = await EmailSchema.findOne({
-            email: to,
-            type: "ticket_qr",
-        });
-
-        if (alreadySent) {
-            console.log(`[Ticket QR] Festival pass already sent once to ${to} (MessageId: ${alreadySent.message_id}). Skipping duplicate delivery.`);
-            return {
-                success: true,
-                alreadySent: true,
-                messageId: alreadySent.message_id,
-                error: null,
-            };
-        }
-    } catch (dbErr) {
-        console.warn("[Ticket QR] Error checking existing email history, proceeding safely:", dbErr);
-    }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://nexusvyoma.islec.edu.in";
     const qrCodeBase64 = qrCode.toString("base64");
@@ -362,6 +341,7 @@ Ideas • People • Culture • Beyond`;
         };
     }
 
+    await connectToDatabase();
     // Save the email details to the database with type "ticket_qr"
     await EmailSchema.create({
         email: to,
