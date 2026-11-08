@@ -23,6 +23,7 @@ import {
   Send,
   X,
   QrCode,
+  ShieldAlert,
 } from "lucide-react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
@@ -31,6 +32,7 @@ import { VolunteerEvent } from "@/services/types/volunteer";
 import ScanModal from "@/components/volunteer/scan/ScanModal";
 import { type ScannedMember, INITIAL_SCANNED_MEMBERS } from "@/lib/dummy-scan-data";
 import ScannedUserDetailsModal, { type ScannedAttendeeData } from "./ScannedUserDetailsModal";
+import AatangwadiModal from "./AatangwadiModal";
 
 // Helper to assign a minimal, strategic palette per track
 function getEventTheme(event: VolunteerEvent) {
@@ -101,6 +103,7 @@ export default function PermittedEventsView() {
   // Scanner & Scanned User Details Modal State
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false);
+  const [isAatangwadiModalOpen, setIsAatangwadiModalOpen] = useState(false);
   const [scannedAttendee, setScannedAttendee] = useState<ScannedAttendeeData | null>(null);
   const [recentScans, setRecentScans] = useState<ScannedMember[]>(INITIAL_SCANNED_MEMBERS.slice(0, 5));
   const [isScanningUser, setIsScanningUser] = useState(false);
@@ -461,6 +464,18 @@ export default function PermittedEventsView() {
               >
                 <Mail className="w-4 h-4 text-[#FF6A00]" />
                 <span>Send Email</span>
+              </button>
+            )}
+
+            {/* Aatangwadi Action Button (Admin Only) */}
+            {isAdmin && (
+              <button
+                onClick={() => setIsAatangwadiModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#FFF1F2] border border-[#FECDD3] text-[#E11D48] text-xs font-semibold shadow-2xs transition-all active:scale-[0.98] cursor-pointer"
+                title="Users who does not enroll any event but paid"
+              >
+                <ShieldAlert className="w-4 h-4 text-[#E11D48]" />
+                <span>Aatangwadi</span>
               </button>
             )}
           </div>
@@ -891,6 +906,12 @@ export default function PermittedEventsView() {
         isOpen={isUserDetailsModalOpen}
         onClose={() => setIsUserDetailsModalOpen(false)}
         attendee={scannedAttendee}
+      />
+
+      {/* Aatangwadi Unenrolled Paid Users Modal */}
+      <AatangwadiModal
+        isOpen={isAatangwadiModalOpen}
+        onClose={() => setIsAatangwadiModalOpen(false)}
       />
     </div>
   );
