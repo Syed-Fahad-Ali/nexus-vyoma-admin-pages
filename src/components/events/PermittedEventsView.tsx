@@ -103,76 +103,122 @@ export default function PermittedEventsView() {
   const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false);
   const [scannedAttendee, setScannedAttendee] = useState<ScannedAttendeeData | null>(null);
   const [recentScans, setRecentScans] = useState<ScannedMember[]>(INITIAL_SCANNED_MEMBERS.slice(0, 5));
+  const [isScanningUser, setIsScanningUser] = useState(false);
+  const [scanUserError, setScanUserError] = useState<string | null>(null);
 
-  const handleScanSuccess = (member: ScannedMember) => {
+  const handleScanSuccess = async (member: ScannedMember) => {
     setRecentScans((prev) => [member, ...prev.slice(0, 9)]);
     setIsScanModalOpen(false);
+    setScanUserError(null);
+    setIsScanningUser(true);
 
-    const scannedUserId = member.userId || `usr_${member.id.replace(/\D/g, "") || "9041"}`;
-    const scannedUserEmail = member.email || "attendee@islec.edu.in";
-    const scannedUserName = member.name || "Festival Attendee";
+    const scannedUserId = member.userId || member.ticketId || member.id;
+    const scannedUserEmail = member.email || "";
 
-    setScannedAttendee({
-      userId: scannedUserId,
-      userEmail: scannedUserEmail,
-      user: {
-        full_name: scannedUserName,
-        email: scannedUserEmail,
-        phone_number: "+91 98480 77123",
-        city: "Hyderabad",
-        state: "Telangana",
-        institution: "ISL Engineering College",
-        year_of_study: "3rd Year",
-        degree: "B.Tech in Computer Science",
-        is_verified: true,
-        createdAt: "05 Nov 2026",
-      },
-      enrolledEvents: [
-        {
-          id: "evt-01",
-          code: "NV-TECH-01",
-          name: "CodeCraft 24h National Hackathon",
-          category: "Technical Flagship",
-          participationType: "team",
-          date: "10 Nov 2026",
-          venue: "Innovation Lab (2nd Floor)",
-          isPaid: true,
-        },
-        {
-          id: "evt-02",
-          code: "NV-ROBO-02",
-          name: "RoboWars: Clash of Metal",
-          category: "Robotics Arena",
-          participationType: "team",
-          date: "11 Nov 2026",
-          venue: "Central Open Grounds Pit 1",
-          isPaid: true,
-        },
-        {
-          id: "evt-03",
-          code: "NV-CODING-03",
-          name: "Algorhythm: Speed Webathon",
-          category: "Software Sprint",
-          participationType: "individual",
-          date: "12 Nov 2026",
-          venue: "Seminar Hall 1",
-          isPaid: true,
-        },
-      ],
-      checkedInEvents: [
-        {
-          id: "chk-01",
-          code: "NV-TECH-01",
-          name: "CodeCraft 24h National Hackathon",
-          category: "Technical Flagship",
-          checkedInAt: "10 Nov 2026 · 09:15 AM",
-          gateOrRoom: "Lab 3 Gate A",
-          volunteerName: displayName,
-        },
-      ],
-    });
+    try {
+      const response = await fetch("/api/scan-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: scannedUserId,
+          userEmail: scannedUserEmail,
+        }),
+      });
 
-    setIsUserDetailsModalOpen(true);
+      const result = await response.json().catch(() => null);
+
+      if (result?.redirect && result?.redirectUrl) {
+        router.replace(result.redirectUrl);
+        return;
+      }
+
+      if (!response.ok || !result || result.error || !result.data?.userDetails) {
+        const errorMsg =
+          result?.message || result?.error || "Attendee not found in festival registration database.";
+        setScanUserError(errorMsg);
+        setTimeout(() => setScanUserError(null), 4000);
+        return;
+      }
+
+      const { userDetails, enrolledEvents, checkedInEvents } = result.data;
+
+      const registeredDate = userDetails.createdAt
+        ? new Date(userDetails.createdAt).toLocaleDateString("en-US", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          })
+        : "Registered Attendee";
+
+      // Map enrolled events from database
+      const mappedEnrolled = (enrolledEvents || []).map((enrollment: any, idx: number) => {
+        const eventDoc = enrollment.event_id || {};
+        const isTeam = Boolean(enrollment.team_name || eventDoc.participants_type === "team");
+        const eventCode = eventDoc.code || `NV-EVT-0${idx + 1}`;
+        const isLeader = enrollment.team_leader_register_user_id === userDetails._id;
+
+        return {
+          id: String(enrollment._id || `enrolled-${idx}`),
+          code: eventCode,
+          name: eventDoc.title || eventDoc.name || "Festival Event",
+          category: eventDoc.category || "General Event",
+          participationType: (isTeam ? "team" : "individual") as "individual" | "team",
+          date: eventDoc.date_time || "10–12 Nov 2026",
+          venue: eventDoc.venue || "Festival Grounds",
+          isPaid: Boolean(enrollment.isPaid ?? true),
+          teamName: enrollment.team_name,
+          isLeader,
+          teamLength: enrollment.team_length,
+        };
+      });
+
+      // Map checked-in events from database
+      const mappedCheckedIn = (checkedInEvents || []).map((entry: any, idx: number) => {
+        const eventDoc = entry.event_id || {};
+        const attenderDoc = entry.attender || {};
+        const checkInDate = entry.checked_in_at || entry.createdAt;
+        const timeFormatted = checkInDate
+          ? new Date(checkInDate).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "Verified";
+
+        return {
+          id: String(entry._id || `chk-${idx}`),
+          code: eventDoc.code || `NV-CHK-0${idx + 1}`,
+          name: eventDoc.title || eventDoc.name || "Festival Arena",
+          category: eventDoc.category || "General Admission",
+          checkedInAt: `Checked in · ${timeFormatted}`,
+          gateOrRoom: eventDoc.venue || "Gate Entrance",
+          volunteerName: attenderDoc.full_name || attenderDoc.email || displayName || "Coordinator",
+        };
+      });
+
+      setScannedAttendee({
+        userId: String(userDetails._id || scannedUserId),
+        userEmail: userDetails.email || scannedUserEmail,
+        user: {
+          full_name: userDetails.full_name || member.name || "Festival Attendee",
+          email: userDetails.email || scannedUserEmail,
+          phone_number: userDetails.phone_number || "—",
+          city: userDetails.city || "Hyderabad",
+          state: userDetails.state || "Telangana",
+          institution: userDetails.institution || "ISL Engineering College",
+          year_of_study: userDetails.year_of_study || "Undergraduate",
+          degree: userDetails.degree || "B.Tech",
+          is_verified: Boolean(userDetails.is_verified ?? true),
+          createdAt: registeredDate,
+        },
+        enrolledEvents: mappedEnrolled,
+        checkedInEvents: mappedCheckedIn,
+      });
+
+      setIsUserDetailsModalOpen(true);
+    } catch (err) {
+      console.error("Failed to query scanned attendee:", err);
+      setScanUserError("Network error while verifying attendee pass.");
+      setTimeout(() => setScanUserError(null), 4000);
+    } finally {
+      setIsScanningUser(false);
+    }
   };
 
   // Fetch live total users count from /api/total-user
@@ -302,6 +348,14 @@ export default function PermittedEventsView() {
         }}
       />
 
+      {/* Scan Error Toast */}
+      {scanUserError && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-xs font-semibold shadow-xl border bg-[#FEF2F2] border-[#FEE2E2] text-[#DC2626] animate-in slide-in-from-top-3">
+          <AlertCircle className="w-4 h-4 text-[#DC2626] shrink-0" />
+          <span>{scanUserError}</span>
+        </div>
+      )}
+
       {/* ======================================================== */}
       {/* Top Navigation Bar                                       */}
       {/* ======================================================== */}
@@ -383,10 +437,15 @@ export default function PermittedEventsView() {
             {isAdmin && (
               <button
                 onClick={() => setIsScanModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                disabled={isScanningUser}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60"
               >
-                <QrCode className="w-4 h-4 text-[#FF6A00]" />
-                <span>Scan QR</span>
+                {isScanningUser ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#FF6A00]" />
+                ) : (
+                  <QrCode className="w-4 h-4 text-[#FF6A00]" />
+                )}
+                <span>{isScanningUser ? "Verifying..." : "Scan QR"}</span>
               </button>
             )}
 

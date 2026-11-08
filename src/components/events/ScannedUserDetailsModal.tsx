@@ -47,6 +47,9 @@ export interface ScannedAttendeeData {
     date: string;
     venue: string;
     isPaid: boolean;
+    teamName?: string;
+    isLeader?: boolean;
+    teamLength?: number;
   }>;
   // Tab 3: Checked-in Events
   checkedInEvents: Array<{
@@ -331,6 +334,11 @@ export default function ScannedUserDetailsModal({
                         <span className="text-[11px] font-medium text-[#6B7280]">
                           {evt.participationType === "team" ? "Team Format" : "Individual Format"}
                         </span>
+                        {evt.teamName && (
+                          <span className="text-[11px] font-semibold text-[#FF6A00] bg-[#FFF7ED] px-2 py-0.5 rounded-md border border-[#FFEDD5]">
+                            Squad: {evt.teamName} {evt.isLeader ? "(Leader)" : ""}
+                          </span>
+                        )}
                       </div>
                       <h4 className="text-sm font-bold text-[#0A0F1E] truncate">{evt.name}</h4>
                       <p className="text-xs text-[#6B7280] mt-0.5">
