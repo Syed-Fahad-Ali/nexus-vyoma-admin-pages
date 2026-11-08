@@ -86,11 +86,39 @@ export default function PermittedEventsView() {
 
   // Email pass dialog state (purely dummy data, no API calls)
   const [isAdmin, setIsAdmin] = useState(false);
+  const [totalUsersCount, setTotalUsersCount] = useState<number | null>(null);
+  const [isTotalUsersLoading, setIsTotalUsersLoading] = useState(true);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [sentEmailAddress, setSentEmailAddress] = useState("");
   const [emailErrorMessage, setEmailErrorMessage] = useState("");
+
+  // Fetch live total users count from /api/total-user
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchTotalUsers() {
+      try {
+        const res = await fetch("/api/total-user", { cache: "no-store" });
+        const json = await res.json().catch(() => null);
+        if (json?.redirect && json?.redirectUrl) {
+          router.replace(json.redirectUrl);
+          return;
+        }
+        if (isMounted && json?.data?.totalUsersCount !== undefined) {
+          setTotalUsersCount(Number(json.data.totalUsersCount));
+        }
+      } catch (err) {
+        console.error("Failed to load total users count:", err);
+      } finally {
+        if (isMounted) setIsTotalUsersLoading(false);
+      }
+    }
+    fetchTotalUsers();
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   // Check admin status from /api/is-admin
   useEffect(() => {
@@ -252,10 +280,16 @@ export default function PermittedEventsView() {
           </div>
 
           <div className="shrink-0 flex items-center gap-2.5 flex-wrap">
-            {/* Total Users Count Pill (Dummy Data) */}
+            {/* Total Users Count Pill (Live Data from /api/total-user) */}
             <div className="inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-xl bg-white border border-[#E5E7EB] text-[#0A0F1E] shadow-2xs">
               <Users className="w-4 h-4 text-[#FF6A00]" />
-              <span>1,420 Total Users</span>
+              <span>
+                {totalUsersCount !== null
+                  ? `${totalUsersCount.toLocaleString()} Total Users`
+                  : isTotalUsersLoading
+                  ? "Loading..."
+                  : "0 Total Users"}
+              </span>
             </div>
 
             {/* Events Active Pill */}
