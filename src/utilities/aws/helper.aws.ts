@@ -1,5 +1,54 @@
 import { randomUUID } from "node:crypto";
-import { sesClient, SendEmailCommand, } from "./client"
+import { s3Client, sesClient, SendEmailCommand, PutObjectCommand } from "./client"
+
+export async function uploadImageToS3(file: Buffer, extension: string, contentType: string, cloud_folder = "profile") {
+    const allowedTypes: Record<string, string[]> = {
+        "image/jpeg": ["jpg", "jpeg"],
+        "image/png": ["png"],
+        "image/webp": ["webp"],
+    };
+
+    if (!(allowedTypes[contentType]?.includes(extension.toLowerCase()))) {
+        // return "Unsupported image type or extension";
+        return {
+            success: false,
+            error: "Unsupported image type or extension",
+            url: null,
+            key: null,
+            result: null,
+        }
+    }
+
+    const fileName = `${randomUUID()}.${extension.toLowerCase()}`;
+    const key = `${cloud_folder}/${fileName}`;
+
+    try {
+        const result = await s3Client.send(
+            new PutObjectCommand({
+                Bucket: process.env.AWS_BUCKET_NAME!,
+                Key: key,
+                Body: file,
+                ContentType: contentType,
+            })
+        )
+
+        return {
+            success: true,
+            url: `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`,
+            key: key,
+            result,
+            error: null,
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+            url: null,
+            key: null,
+            result: null,
+        }
+    }
+}
 
 export async function sendEmailWithSES(to: string, subject: string, html: string, text?: string) {
     const from = '"Team Nexus Vyoma" <no-reply@islec.edu.in>';
