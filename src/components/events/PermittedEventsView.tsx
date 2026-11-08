@@ -22,11 +22,15 @@ import {
   CheckCircle2,
   Send,
   X,
+  QrCode,
 } from "lucide-react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
 import { volunteerService, VolunteerApiError } from "@/services/volunteerService";
 import { VolunteerEvent } from "@/services/types/volunteer";
+import ScanModal from "@/components/volunteer/scan/ScanModal";
+import { type ScannedMember, INITIAL_SCANNED_MEMBERS } from "@/lib/dummy-scan-data";
+import ScannedUserDetailsModal, { type ScannedAttendeeData } from "./ScannedUserDetailsModal";
 
 // Helper to assign a minimal, strategic palette per track
 function getEventTheme(event: VolunteerEvent) {
@@ -93,6 +97,83 @@ export default function PermittedEventsView() {
   const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "sent">("idle");
   const [sentEmailAddress, setSentEmailAddress] = useState("");
   const [emailErrorMessage, setEmailErrorMessage] = useState("");
+
+  // Scanner & Scanned User Details Modal State
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false);
+  const [scannedAttendee, setScannedAttendee] = useState<ScannedAttendeeData | null>(null);
+  const [recentScans, setRecentScans] = useState<ScannedMember[]>(INITIAL_SCANNED_MEMBERS.slice(0, 5));
+
+  const handleScanSuccess = (member: ScannedMember) => {
+    setRecentScans((prev) => [member, ...prev.slice(0, 9)]);
+    setIsScanModalOpen(false);
+
+    const scannedUserId = member.userId || `usr_${member.id.replace(/\D/g, "") || "9041"}`;
+    const scannedUserEmail = member.email || "attendee@islec.edu.in";
+    const scannedUserName = member.name || "Festival Attendee";
+
+    setScannedAttendee({
+      userId: scannedUserId,
+      userEmail: scannedUserEmail,
+      user: {
+        full_name: scannedUserName,
+        email: scannedUserEmail,
+        phone_number: "+91 98480 77123",
+        city: "Hyderabad",
+        state: "Telangana",
+        institution: "ISL Engineering College",
+        year_of_study: "3rd Year",
+        degree: "B.Tech in Computer Science",
+        is_verified: true,
+        createdAt: "05 Nov 2026",
+      },
+      enrolledEvents: [
+        {
+          id: "evt-01",
+          code: "NV-TECH-01",
+          name: "CodeCraft 24h National Hackathon",
+          category: "Technical Flagship",
+          participationType: "team",
+          date: "10 Nov 2026",
+          venue: "Innovation Lab (2nd Floor)",
+          isPaid: true,
+        },
+        {
+          id: "evt-02",
+          code: "NV-ROBO-02",
+          name: "RoboWars: Clash of Metal",
+          category: "Robotics Arena",
+          participationType: "team",
+          date: "11 Nov 2026",
+          venue: "Central Open Grounds Pit 1",
+          isPaid: true,
+        },
+        {
+          id: "evt-03",
+          code: "NV-CODING-03",
+          name: "Algorhythm: Speed Webathon",
+          category: "Software Sprint",
+          participationType: "individual",
+          date: "12 Nov 2026",
+          venue: "Seminar Hall 1",
+          isPaid: true,
+        },
+      ],
+      checkedInEvents: [
+        {
+          id: "chk-01",
+          code: "NV-TECH-01",
+          name: "CodeCraft 24h National Hackathon",
+          category: "Technical Flagship",
+          checkedInAt: "10 Nov 2026 · 09:15 AM",
+          gateOrRoom: "Lab 3 Gate A",
+          volunteerName: displayName,
+        },
+      ],
+    });
+
+    setIsUserDetailsModalOpen(true);
+  };
 
   // Fetch live total users count from /api/total-user
   useEffect(() => {
@@ -298,6 +379,17 @@ export default function PermittedEventsView() {
               <span>{events.length} {events.length === 1 ? "Event Active" : "Events Active"}</span>
             </span>
 
+            {/* Scan QR Action Button (Admin Only) */}
+            {isAdmin && (
+              <button
+                onClick={() => setIsScanModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+              >
+                <QrCode className="w-4 h-4 text-[#FF6A00]" />
+                <span>Scan QR</span>
+              </button>
+            )}
+
             {/* Send Email Action Button (Admin Only) */}
             {isAdmin && (
               <button
@@ -306,7 +398,7 @@ export default function PermittedEventsView() {
                   setEmailStatus("idle");
                   setEmailErrorMessage("");
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] text-[#0A0F1E] text-xs font-semibold shadow-2xs transition-all active:scale-[0.98] cursor-pointer"
               >
                 <Mail className="w-4 h-4 text-[#FF6A00]" />
                 <span>Send Email</span>
@@ -726,6 +818,21 @@ export default function PermittedEventsView() {
           </div>
         </div>
       )}
+      {/* QR Camera Scanner Modal */}
+      <ScanModal
+        isOpen={isScanModalOpen}
+        onClose={() => setIsScanModalOpen(false)}
+        onScanSuccess={handleScanSuccess}
+        recentScans={recentScans}
+        currentVolunteer={displayName}
+      />
+
+      {/* 3-Tab Scanned User Details Modal */}
+      <ScannedUserDetailsModal
+        isOpen={isUserDetailsModalOpen}
+        onClose={() => setIsUserDetailsModalOpen(false)}
+        attendee={scannedAttendee}
+      />
     </div>
   );
 }
