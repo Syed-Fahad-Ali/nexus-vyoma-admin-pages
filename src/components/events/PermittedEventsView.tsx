@@ -18,6 +18,10 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Mail,
+  CheckCircle2,
+  Send,
+  X,
 } from "lucide-react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
@@ -79,6 +83,44 @@ export default function PermittedEventsView() {
     redirectUrl?: string | null;
   } | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  // Email pass dialog state (purely dummy data, no API calls)
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "sent">("idle");
+  const [sentEmailAddress, setSentEmailAddress] = useState("");
+  const [emailErrorMessage, setEmailErrorMessage] = useState("");
+
+  // Check admin status from /api/is-admin
+  useEffect(() => {
+    let isMounted = true;
+    async function checkAdminStatus() {
+      try {
+        const res = await fetch("/api/is-admin", { cache: "no-store" });
+        const json = await res.json().catch(() => null);
+        if (isMounted) {
+          setIsAdmin(json?.data?.isAdmin === true);
+        }
+      } catch {
+        if (isMounted) setIsAdmin(false);
+      }
+    }
+    checkAdminStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Close modal on Escape
+  useEffect(() => {
+    if (!isEmailModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsEmailModalOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isEmailModalOpen]);
 
   const loadPermittedEvents = async () => {
     setIsLoading(true);
@@ -209,11 +251,33 @@ export default function PermittedEventsView() {
             </p>
           </div>
 
-          <div className="shrink-0 flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-white border border-[#E5E7EB] text-[#4B5563] shadow-xs">
-              <Layers className="w-3.5 h-3.5 text-[#FF6A00]" />
+          <div className="shrink-0 flex items-center gap-2.5 flex-wrap">
+            {/* Total Users Count Pill (Dummy Data) */}
+            <div className="inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-xl bg-white border border-[#E5E7EB] text-[#0A0F1E] shadow-2xs">
+              <Users className="w-4 h-4 text-[#FF6A00]" />
+              <span>1,420 Total Users</span>
+            </div>
+
+            {/* Events Active Pill */}
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-xl bg-white border border-[#E5E7EB] text-[#4B5563] shadow-2xs">
+              <Layers className="w-4 h-4 text-[#FF6A00]" />
               <span>{events.length} {events.length === 1 ? "Event Active" : "Events Active"}</span>
             </span>
+
+            {/* Send Email Action Button (Admin Only) */}
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setIsEmailModalOpen(true);
+                  setEmailStatus("idle");
+                  setEmailErrorMessage("");
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer"
+              >
+                <Mail className="w-4 h-4 text-[#FF6A00]" />
+                <span>Send Email</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -428,6 +492,206 @@ export default function PermittedEventsView() {
       <footer className="w-full bg-white border-t border-[#E5E7EB] py-4 text-center text-xs text-[#9CA3AF]">
         Nexus Vyoma 2026 &middot; ISL Engineering College &middot; Hyderabad
       </footer>
+
+      {/* ======================================================== */}
+      {/* Send Email Dialog Modal (Dummy Data)                     */}
+      {/* ======================================================== */}
+      {isEmailModalOpen && (
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsEmailModalOpen(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 select-none"
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-2xl border border-[#E5E7EB] shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="email-modal-title"
+          >
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 border-b border-[#E5E7EB] bg-[#F9FAFB] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#FFF4ED] border border-[#FFEDD5] flex items-center justify-center text-[#FF6A00] shrink-0">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="email-modal-title" className="text-base font-bold text-[#0A0F1E]">
+                    Send Festival Pass
+                  </h3>
+                  <p className="text-xs text-[#6B7280]">
+                    Enter email to deliver attendee festival entry credentials
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsEmailModalOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:text-[#0A0F1E] hover:bg-[#E5E7EB]/60 transition-colors cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 flex flex-col gap-4">
+              {emailStatus === "sent" ? (
+                <div className="flex flex-col items-center text-center py-3 gap-3 animate-in fade-in">
+                  <div className="w-12 h-12 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-center text-[#16A34A]">
+                    <CheckCircle2 className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-bold text-[#0A0F1E]">
+                      Pass Dispatch Confirmed
+                    </h4>
+                    <div className="p-3 rounded-xl bg-[#F0FDF4] border border-[#DCFCE7] text-xs font-semibold text-[#15803D]">
+                      send festival pass on {sentEmailAddress}
+                    </div>
+                    <p className="text-xs text-[#6B7280]">
+                      The attendee credentials and event schedule have been queued.
+                    </p>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2.5 w-full">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmailStatus("idle");
+                        setEmailInput("");
+                      }}
+                      className="flex-1 h-10 px-4 rounded-xl border border-[#E5E7EB] text-xs font-semibold text-[#4B5563] hover:text-[#0A0F1E] hover:bg-[#F9FAFB] transition-colors cursor-pointer"
+                    >
+                      Send Another
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEmailModalOpen(false)}
+                      className="flex-1 h-10 px-4 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const trimmed = emailInput.trim();
+                    if (!trimmed) {
+                      setEmailErrorMessage("Please enter an email address.");
+                      return;
+                    }
+                    if (!/^\S+@\S+\.\S+$/.test(trimmed)) {
+                      setEmailErrorMessage("Please enter a valid email address.");
+                      return;
+                    }
+                    setEmailErrorMessage("");
+                    setEmailStatus("sending");
+
+                    try {
+                      const response = await fetch("/api/send-email", {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ senderEmail: trimmed }),
+                      });
+
+                      const result = await response.json().catch(() => null);
+
+                      if (result?.redirect && result?.redirectUrl) {
+                        router.replace(result.redirectUrl);
+                        return;
+                      }
+
+                      if (!response.ok || !result || result.error) {
+                        const errorMsg =
+                          result?.message ||
+                          result?.error ||
+                          `Failed to send festival pass (HTTP ${response.status})`;
+                        setEmailErrorMessage(errorMsg);
+                        setEmailStatus("idle");
+                        return;
+                      }
+
+                      setSentEmailAddress(trimmed);
+                      setEmailStatus("sent");
+                    } catch (err) {
+                      console.error("Failed to send festival pass:", err);
+                      setEmailErrorMessage(
+                        err instanceof Error
+                          ? err.message
+                          : "A network error occurred while sending the email."
+                      );
+                      setEmailStatus("idle");
+                    }
+                  }}
+                  className="flex flex-col gap-4"
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="enter-email-input" className="text-xs font-semibold text-[#0A0F1E]">
+                      Enter Email
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+                      <input
+                        id="enter-email-input"
+                        type="email"
+                        value={emailInput}
+                        onChange={(e) => {
+                          setEmailInput(e.target.value);
+                          if (emailErrorMessage) setEmailErrorMessage("");
+                        }}
+                        placeholder="Enter email..."
+                        autoFocus
+                        className="w-full h-11 pl-10 pr-3.5 rounded-xl border border-[#E5E7EB] bg-white text-sm text-[#0A0F1E] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#FF6A00]/20 focus:border-[#FF6A00] transition-all"
+                      />
+                    </div>
+                    {emailErrorMessage && (
+                      <span className="text-xs font-medium text-[#DC2626]">
+                        {emailErrorMessage}
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-[#6B7280]">
+                    Recipient will receive entry QR pass, reporting schedule, and college ID verification rules.
+                  </p>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEmailModalOpen(false)}
+                      className="h-10 px-4 rounded-xl border border-[#E5E7EB] text-xs font-semibold text-[#4B5563] hover:text-[#0A0F1E] hover:bg-[#F9FAFB] transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={emailStatus === "sending"}
+                      className="h-10 px-5 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                    >
+                      {emailStatus === "sending" ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Sending...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-3.5 h-3.5 text-[#FF6A00]" />
+                          <span>Send Festival Pass</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

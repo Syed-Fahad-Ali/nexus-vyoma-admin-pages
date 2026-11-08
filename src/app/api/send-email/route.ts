@@ -7,10 +7,19 @@ import { generateQRCode } from "@/utilities/generate-qr";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { NextResponse, NextRequest } from "next/server";
 
-export async function GET(request: NextRequest) {
+async function handleSendEmail(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { senderEmail } = body;
+        let senderEmail: string | null = null;
+        if (request.method === "GET") {
+            senderEmail = request.nextUrl.searchParams.get("senderEmail");
+            if (!senderEmail) {
+                const body = await request.json().catch(() => null);
+                senderEmail = body?.senderEmail;
+            }
+        } else {
+            const body = await request.json().catch(() => null);
+            senderEmail = body?.senderEmail;
+        }
 
         if (!senderEmail || typeof senderEmail !== "string") {
             return NextResponse.json({
@@ -19,7 +28,7 @@ export async function GET(request: NextRequest) {
                 error: "INVALID_EMAIL",
                 redirect: false,
                 redirectUrl: null,
-            }, { status: 400 })
+            }, { status: 400 });
         }
 
         const { userId, sessionId } = await auth();
@@ -37,7 +46,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const user = await currentUser()
+        const user = await currentUser();
 
         if (!user) {
             return NextResponse.json(
@@ -58,7 +67,7 @@ export async function GET(request: NextRequest) {
 
         const userDataWithEvents = await EventTeamMember.findOne({
             email: email ? { $regex: new RegExp(`^${email}$`, "i") } : ""
-        })
+        });
 
         if (!userDataWithEvents) {
             const clerk = await clerkClient();
@@ -70,7 +79,7 @@ export async function GET(request: NextRequest) {
                 error: "No user data found",
                 redirect: true,
                 redirectUrl: "/",
-            }, { status: 403 })
+            }, { status: 403 });
         }
 
         const rawAdminEmails = process.env.ADMIN_EMAILS;
@@ -90,10 +99,13 @@ export async function GET(request: NextRequest) {
                 error: "NOT_ADMIN",
                 redirect: false,
                 redirectUrl: null,
-            }, { status: 403 })
+            }, { status: 403 });
         }
 
-        const senderDetails = await RegisterUser.findOne({ email });
+        const targetEmail = senderEmail.trim();
+        const senderDetails = await RegisterUser.findOne({
+            email: { $regex: new RegExp(`^${targetEmail}$`, "i") }
+        });
 
         if (!senderDetails) {
             return NextResponse.json({
@@ -102,10 +114,10 @@ export async function GET(request: NextRequest) {
                 error: "SENDER_NOT_FOUND",
                 redirect: false,
                 redirectUrl: null,
-            }, { status: 404 })
+            }, { status: 404 });
         }
 
-        const entryTicket = await EntryTicket.findOne({ userId: senderDetails.userId, isPaid: true });
+        const entryTicket = await EntryTicket.findOne({ userId: senderDetails._id, isPaid: true });
 
         if (!entryTicket) {
             return NextResponse.json({
@@ -114,12 +126,13 @@ export async function GET(request: NextRequest) {
                 error: "SENDER_NOT_FOUND",
                 redirect: false,
                 redirectUrl: null,
-            }, { status: 404 })
+            }, { status: 404 });
         }
-        const senderData = { userId: entryTicket?.userId, userEmail: senderDetails?.email }
+
+        const senderData = { userId: entryTicket?.userId, userEmail: senderDetails?.email };
         const qr_code = await generateQRCode(senderData);
 
-        await sendQREmail(senderDetails?.email, senderDetails?.name, qr_code);
+        await sendQREmail(senderDetails?.email, senderDetails?.full_name, qr_code);
 
         return NextResponse.json({
             message: "Send email feature fetched successfully",
@@ -127,7 +140,7 @@ export async function GET(request: NextRequest) {
             error: null,
             redirect: false,
             redirectUrl: null,
-        }, { status: 200 })
+        }, { status: 200 });
 
     } catch (error) {
         return NextResponse.json({
@@ -136,6 +149,14 @@ export async function GET(request: NextRequest) {
             error: error instanceof Error ? error.message : "Unknown error",
             redirect: true,
             redirectUrl: "/",
-        }, { status: 500 })
+        }, { status: 500 });
     }
+}
+
+export async function POST(request: NextRequest) {
+    return handleSendEmail(request);
+}
+
+export async function GET(request: NextRequest) {
+    return handleSendEmail(request);
 }
