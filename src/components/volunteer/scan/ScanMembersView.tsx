@@ -137,9 +137,8 @@ export default function ScanMembersView() {
     loadCheckInData();
   }, [loadCheckInData]);
 
-  // Handle live QR Scan
+  // Handle live QR Scan without closing camera modal (continuous scanning)
   const handleScanSuccess = async (member: ScannedMember) => {
-    setIsScanModalOpen(false);
     setScanError(null);
     setSuccessBanner(null);
     setIsCheckingIn(true);
@@ -148,38 +147,49 @@ export default function ScanMembersView() {
     const scannedUserEmail = member.email || "";
 
     if (!selectedEventId) {
-      setScanError("No active event selected. Please select an event before scanning.");
+      const msg = "No active event selected. Please select an event before scanning.";
+      setScanError(msg);
       setIsCheckingIn(false);
-      return;
+      return { success: false, message: msg, email: scannedUserEmail };
     }
 
     try {
       // 1. Check in attendee via POST /api/dashboard/scan-user
-      const checkInResult = await volunteerService.checkInDashboardUser(
+      await volunteerService.checkInDashboardUser(
         selectedEventId,
         scannedUserId,
         scannedUserEmail
       );
 
-      const attendeeName =
-        checkInResult.data?.name || checkInResult.data?.full_name || member.name || "Attendee";
-      setSuccessBanner(`✓ ${attendeeName} (${scannedUserEmail}) checked in successfully!`);
-      setTimeout(() => setSuccessBanner(null), 6000);
+      const successText = `${scannedUserEmail} has been checked in`;
+      setSuccessBanner(`✓ ${successText}`);
+      setTimeout(() => setSuccessBanner(null), 5000);
 
-      // 2. Refetch live list & stats without popping up modal
+      // 2. Refetch live list & stats in background without closing modal
       await loadCheckInData(true);
+
+      return {
+        success: true,
+        message: successText,
+        email: scannedUserEmail,
+      };
     } catch (err) {
       console.error("Check-in error:", err);
       if (err instanceof VolunteerApiError && err.redirect && err.redirectUrl) {
         router.replace(err.redirectUrl);
-        return;
+        return { success: false, message: "Redirecting...", email: scannedUserEmail };
       }
-      setScanError(
+      const errorMsg =
         err instanceof Error
           ? err.message
-          : "An unexpected error occurred during ticket check-in."
-      );
-      setTimeout(() => setScanError(null), 6000);
+          : `${scannedUserEmail} check-in failed`;
+      setScanError(errorMsg);
+      setTimeout(() => setScanError(null), 5000);
+      return {
+        success: false,
+        message: errorMsg,
+        email: scannedUserEmail,
+      };
     } finally {
       setIsCheckingIn(false);
     }

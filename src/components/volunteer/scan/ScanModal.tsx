@@ -8,13 +8,20 @@ import {
   RefreshCw,
   CheckCircle2,
   Volume2,
+  AlertCircle,
 } from "lucide-react";
 import { type ScannedMember } from "@/lib/dummy-scan-data";
+
+export interface ScanResultFeedback {
+  success: boolean;
+  message: string;
+  email?: string;
+}
 
 interface ScanModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onScanSuccess: (member: ScannedMember) => void;
+  onScanSuccess: (member: ScannedMember) => Promise<ScanResultFeedback | void> | void;
   recentScans?: ScannedMember[];
   currentVolunteer?: string;
 }
@@ -129,7 +136,7 @@ export default function ScanModal({
 
   // Handle scanned raw string without rejecting any payload
   const handleScannedResult = useCallback(
-    (rawText: string) => {
+    async (rawText: string) => {
       const now = Date.now();
 
       // Debounce duplicate identical scans within 2 seconds
@@ -160,15 +167,29 @@ export default function ScanModal({
         status: "Checked In",
       };
 
-      onScanSuccess(newRecord);
-      setFeedback({
-        type: "success",
-        message: `Scanned: ${userId}`,
-      });
+      try {
+        const result = await onScanSuccess(newRecord);
+        if (result && typeof result === "object") {
+          setFeedback({
+            type: result.success ? "success" : "error",
+            message: result.message,
+          });
+        } else {
+          setFeedback({
+            type: "success",
+            message: `${userEmail} has been checked in`,
+          });
+        }
+      } catch (err) {
+        setFeedback({
+          type: "error",
+          message: err instanceof Error ? err.message : `${userEmail} check-in failed`,
+        });
+      }
 
       setTimeout(() => {
-        setFeedback((prev) => (prev?.message ? null : prev));
-      }, 2500);
+        setFeedback((prev) => (prev ? null : prev));
+      }, 3500);
     },
     [currentVolunteer, onScanSuccess]
   );
@@ -360,9 +381,17 @@ export default function ScanModal({
           {/* Dynamic Flash Feedback Toast */}
           {feedback && (
             <div
-              className={`absolute top-3 left-1/2 -translate-x-1/2 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-xl flex items-center gap-2 animate-in fade-in zoom-in-95 z-30 max-w-[92%] bg-[#16A34A] border border-[#22C55E]`}
+              className={`absolute top-4 left-1/2 -translate-x-1/2 text-white text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2 sm:py-2.5 rounded-full shadow-2xl flex items-center gap-2 animate-in fade-in slide-in-from-top-3 duration-200 z-30 max-w-[92%] backdrop-blur-md ${
+                feedback.type === "success"
+                  ? "bg-[#16A34A]/95 border border-[#22C55E] text-white shadow-green-950/40"
+                  : "bg-[#DC2626]/95 border border-[#EF4444] text-white shadow-red-950/40"
+              }`}
             >
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
+              {feedback.type === "success" ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-white" />
+              ) : (
+                <AlertCircle className="w-4 h-4 shrink-0 text-white" />
+              )}
               <span className="truncate">{feedback.message}</span>
             </div>
           )}
