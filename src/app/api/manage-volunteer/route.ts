@@ -2,10 +2,8 @@ import mongoose from "mongoose";
 import { connectToDatabase } from "@/database/db";
 import EventTeamMember from "@/database/schema/event-team-member.schema";
 import Event from "@/database/schema/event.schema";
-import RegisterUser from "@/database/schema/register-user.schema";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { NextResponse, NextRequest } from "next/server";
-import EntryTicket from "@/database/schema/entry-ticket.schema";
 
 export async function GET(request: NextRequest) {
     try {
@@ -330,6 +328,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         const user = await currentUser();
+        const clerk = await clerkClient();
 
         if (!user) {
             return NextResponse.json(
@@ -354,7 +353,6 @@ export async function DELETE(request: NextRequest) {
         });
 
         if (!userDataWithEvents) {
-            const clerk = await clerkClient();
             await clerk.sessions.revokeSession(sessionId);
 
             return NextResponse.json({
@@ -403,6 +401,15 @@ export async function DELETE(request: NextRequest) {
                 redirect: false,
                 redirectUrl: null,
             }, { status: 404 });
+        }
+
+        const invitationList = await clerk.invitations.getInvitationList();
+
+        if (invitationList) {
+            const invitationToDelete = invitationList.data.find(invitation => invitation.emailAddress.toLowerCase() === deletedVolunteer.email.toLowerCase());
+            if (invitationToDelete) {
+                await clerk.invitations.deleteInvitation(invitationToDelete.id);
+            }
         }
 
         return NextResponse.json({
