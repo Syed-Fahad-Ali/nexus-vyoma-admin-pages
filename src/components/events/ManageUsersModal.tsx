@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   X,
   UserX,
@@ -27,6 +28,7 @@ export default function ManageUsersModal({
   isOpen,
   onClose,
 }: ManageUsersModalProps) {
+  const router = useRouter();
   const [selectedAction, setSelectedAction] = useState<ActionType | null>(null);
   const [emailInput, setEmailInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,7 +66,7 @@ export default function ManageUsersModal({
     setFeedbackMessage("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = emailInput.trim();
     if (!trimmed || !trimmed.includes("@")) {
@@ -77,16 +79,60 @@ export default function ManageUsersModal({
     setStatus("idle");
     setFeedbackMessage("");
 
-    // Simulate backend processing with dummy data
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setStatus("success");
-      if (selectedAction === "ban") {
-        setFeedbackMessage(`User "${trimmed}" has been banned successfully.`);
-      } else {
-        setFeedbackMessage(`User "${trimmed}" has been unbanned successfully.`);
+    try {
+      const response = await fetch("/api/manage-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userEmail: trimmed,
+          banBody: selectedAction,
+        }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (result?.redirect && result?.redirectUrl) {
+        router.replace(result.redirectUrl);
+        return;
       }
-    }, 700);
+
+      if (!response.ok || !result || result.error) {
+        let msg = result?.message || result?.error || "Failed to update user status.";
+        if (result?.error === "SENDER_NOT_FOUND") {
+          if (
+            typeof result?.message === "string" &&
+            result.message.toLowerCase().includes("paid ticket")
+          ) {
+            msg = `No paid festival ticket found for "${trimmed}".`;
+          } else {
+            msg = `User with email "${trimmed}" was not found in registration database.`;
+          }
+        } else if (result?.error === "NOT_ADMIN") {
+          msg = "You do not have administrative privileges to manage attendees.";
+        }
+        setStatus("error");
+        setFeedbackMessage(msg);
+        return;
+      }
+
+      setStatus("success");
+      setFeedbackMessage(
+        result.message ||
+          `User "${trimmed}" has been successfully ${
+            selectedAction === "ban" ? "banned" : "unbanned"
+          }.`
+      );
+    } catch (err) {
+      console.error("Manage user API error:", err);
+      setStatus("error");
+      setFeedbackMessage(
+        err instanceof Error
+          ? err.message
+          : "An unexpected network error occurred. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
