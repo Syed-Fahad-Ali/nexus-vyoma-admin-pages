@@ -677,6 +677,86 @@ export const volunteerService = {
   },
 
   /**
+   * Retrieves live event check-in entries and assigned volunteers from /api/dashboard/scan-user.
+   */
+  async getDashboardScanUser(eventId: string): Promise<{
+    checkedInUsers: any[];
+    noOfCheckedInUsers: number;
+    volunteer: any[];
+  }> {
+    const response = await fetch("/api/dashboard/scan-user", {
+      method: "GET",
+      headers: {
+        "event-id": eventId,
+        eventId: eventId,
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok || !result || result.error) {
+      const errorMessage =
+        result?.error ||
+        result?.message ||
+        `Failed to fetch event check-in records (HTTP ${response.status})`;
+
+      throw new VolunteerApiError(
+        errorMessage,
+        response.status,
+        result?.redirect ?? false,
+        result?.redirectUrl ?? null
+      );
+    }
+
+    return (
+      result.data || {
+        checkedInUsers: [],
+        noOfCheckedInUsers: 0,
+        volunteer: [],
+      }
+    );
+  },
+
+  /**
+   * Checks in an attendee for the specific event via POST /api/dashboard/scan-user.
+   */
+  async checkInDashboardUser(
+    eventId: string,
+    userId: string,
+    userEmail: string
+  ): Promise<{ message: string; data: any }> {
+    const response = await fetch("/api/dashboard/scan-user", {
+      method: "POST",
+      headers: {
+        "event-id": eventId,
+        eventId: eventId,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId, userEmail }),
+    });
+
+    const result = await response.json().catch(() => null);
+
+    if (!response.ok || !result || result.error) {
+      const errorMessage =
+        result?.message ||
+        result?.error ||
+        `Failed to check in attendee (HTTP ${response.status})`;
+
+      throw new VolunteerApiError(
+        errorMessage,
+        response.status,
+        result?.redirect ?? false,
+        result?.redirectUrl ?? null
+      );
+    }
+
+    return result;
+  },
+
+  /**
    * Retrieves aggregated statistics strictly scoped to the specified event from /api/dashboard.
    */
   async getEventStats(eventId: string): Promise<EventStats> {

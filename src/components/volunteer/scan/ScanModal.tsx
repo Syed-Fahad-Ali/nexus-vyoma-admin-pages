@@ -6,7 +6,6 @@ import {
   X,
   Camera,
   RefreshCw,
-  Zap,
   CheckCircle2,
   Volume2,
 } from "lucide-react";
@@ -367,34 +366,6 @@ export default function ScanModal({
               <span className="truncate">{feedback.message}</span>
             </div>
           )}
-
-          {/* Quick Simulation Button for Testing */}
-          <div className="absolute bottom-3 right-3 left-3 flex items-center justify-end z-20">
-            <button
-              type="button"
-              onClick={() => {
-                const randomId = `NV-USR-${Math.floor(1000 + Math.random() * 9000)}`;
-                const emails = [
-                  "armaan.m@islec.edu.in",
-                  "simran.k@cbit.ac.in",
-                  "bilal.ahmed@mjcet.ac.in",
-                  "deepa.r@vnr.ac.in",
-                ];
-                const pickedEmail = emails[Math.floor(Math.random() * emails.length)];
-                handleScannedResult(
-                  JSON.stringify({
-                    userId: randomId,
-                    userEmail: pickedEmail,
-                  })
-                );
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/95 hover:bg-white text-[#0A0F1E] text-[11px] font-semibold shadow-md backdrop-blur-xs transition-transform active:scale-95 cursor-pointer border border-[#E5E7EB]"
-              title="Test QR Scan"
-            >
-              <Zap className="w-3.5 h-3.5 text-[#FF6A00]" />
-              <span>Simulate QR Scan</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>
