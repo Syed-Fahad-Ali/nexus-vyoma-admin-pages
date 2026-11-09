@@ -1,8 +1,4 @@
-import mongoose from "mongoose";
 import { connectToDatabase } from "@/database/db";
-import EnrolledIndividualEvent from "@/database/schema/enrolled-individual-event.schema";
-import EnrolledTeamEvent from "@/database/schema/enrolled-team-event.schema";
-import EventEntry from "@/database/schema/event-entry.schema";
 import EventTeamMember from "@/database/schema/event-team-member.schema";
 import Event from "@/database/schema/event.schema";
 import RegisterUser from "@/database/schema/register-user.schema";
