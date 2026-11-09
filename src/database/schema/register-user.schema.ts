@@ -49,6 +49,10 @@ const registrationUserSchema = new mongoose.Schema({
     is_verified: {
         type: Boolean,
         default: false
+    },
+    isBanned: {
+        type: Boolean,
+        default: false
     }
 },
     { timestamps: true, overwriteModels: true });
