@@ -24,6 +24,7 @@ import {
   X,
   QrCode,
   ShieldAlert,
+  UserCog,
 } from "lucide-react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
@@ -33,6 +34,7 @@ import ScanModal from "@/components/volunteer/scan/ScanModal";
 import { type ScannedMember, INITIAL_SCANNED_MEMBERS } from "@/lib/dummy-scan-data";
 import ScannedUserDetailsModal, { type ScannedAttendeeData } from "./ScannedUserDetailsModal";
 import AatangwadiModal from "./AatangwadiModal";
+import ManageUsersModal from "./ManageUsersModal";
 
 // Helper to assign a minimal, strategic palette per track
 function getEventTheme(event: VolunteerEvent) {
@@ -104,6 +106,7 @@ export default function PermittedEventsView() {
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false);
   const [isAatangwadiModalOpen, setIsAatangwadiModalOpen] = useState(false);
+  const [isManageUsersModalOpen, setIsManageUsersModalOpen] = useState(false);
   const [scannedAttendee, setScannedAttendee] = useState<ScannedAttendeeData | null>(null);
   const [recentScans, setRecentScans] = useState<ScannedMember[]>(INITIAL_SCANNED_MEMBERS.slice(0, 5));
   const [isScanningUser, setIsScanningUser] = useState(false);
@@ -476,6 +479,18 @@ export default function PermittedEventsView() {
               >
                 <ShieldAlert className="w-4 h-4 text-[#E11D48]" />
                 <span>Aatangwadi</span>
+              </button>
+            )}
+
+            {/* Manage Users Action Button (Admin Only) */}
+            {isAdmin && (
+              <button
+                onClick={() => setIsManageUsersModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] text-[#0A0F1E] text-xs font-semibold shadow-2xs transition-all active:scale-[0.98] cursor-pointer"
+                title="Manage festival users (Ban/Unban)"
+              >
+                <UserCog className="w-4 h-4 text-[#4F46E5]" />
+                <span>Manage Users</span>
               </button>
             )}
           </div>
@@ -912,6 +927,12 @@ export default function PermittedEventsView() {
       <AatangwadiModal
         isOpen={isAatangwadiModalOpen}
         onClose={() => setIsAatangwadiModalOpen(false)}
+      />
+
+      {/* Manage Users (Ban/Unban) Modal */}
+      <ManageUsersModal
+        isOpen={isManageUsersModalOpen}
+        onClose={() => setIsManageUsersModalOpen(false)}
       />
     </div>
   );

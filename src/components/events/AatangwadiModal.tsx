@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   X,
   Search,
@@ -14,6 +15,8 @@ import {
   CheckCircle2,
   Users,
   ShieldAlert,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,110 +29,23 @@ export interface UnenrolledPaidUser {
   institution: string;
   degree: string;
   year: string;
-  ticketId: string;
-  amountPaid: string;
-  isPaid: boolean;
+  ticketId?: string;
+  amountPaid?: string;
+  isPaid?: boolean;
 }
 
-// Realistic dummy data: paid festival ticket holders with 0 event enrollments
-const INITIAL_UNENROLLED_PAID_USERS: UnenrolledPaidUser[] = [
-  {
-    id: "usr-aat-01",
-    name: "Mohammed Arbaaz",
-    email: "arbaaz.m@islec.edu.in",
-    phoneno: "+91 98480 11928",
-    institution: "ISL Engineering College",
-    degree: "B.Tech in Artificial Intelligence & Data Science",
-    year: "3rd Year",
-    ticketId: "NV26-TCK-1092",
-    amountPaid: "₹250",
-    isPaid: true,
-  },
-  {
-    id: "usr-aat-02",
-    name: "Sneha Reddy",
-    email: "sneha.reddy@cbit.ac.in",
-    phoneno: "+91 98480 34821",
-    institution: "Chaitanya Bharathi Institute of Technology",
-    degree: "B.Tech in Information Technology",
-    year: "4th Year",
-    ticketId: "NV26-TCK-2044",
-    amountPaid: "₹250",
-    isPaid: true,
-  },
-  {
-    id: "usr-aat-03",
-    name: "Syed Rehan Ahmed",
-    email: "rehan.ahmed@mjcet.ac.in",
-    phoneno: "+91 98480 77102",
-    institution: "Muffakham Jah College of Engineering & Tech",
-    degree: "B.Tech in Computer Science & Engineering",
-    year: "2nd Year",
-    ticketId: "NV26-TCK-3190",
-    amountPaid: "₹250",
-    isPaid: true,
-  },
-  {
-    id: "usr-aat-04",
-    name: "Ananya Deshmukh",
-    email: "ananya.d@vnr.ac.in",
-    phoneno: "+91 98480 55673",
-    institution: "VNR Vignana Jyothi Institute of Engineering",
-    degree: "B.Tech in Electronics & Communication",
-    year: "3rd Year",
-    ticketId: "NV26-TCK-4421",
-    amountPaid: "₹250",
-    isPaid: true,
-  },
-  {
-    id: "usr-aat-05",
-    name: "Faisal Siddiqui",
-    email: "faisal.s@islec.edu.in",
-    phoneno: "+91 98480 99312",
-    institution: "ISL Engineering College",
-    degree: "B.Tech in Mechanical Engineering",
-    year: "4th Year",
-    ticketId: "NV26-TCK-5108",
-    amountPaid: "₹250",
-    isPaid: true,
-  },
-  {
-    id: "usr-aat-06",
-    name: "Rhea Kulkarni",
-    email: "rhea.k@vasavi.ac.in",
-    phoneno: "+91 98480 44219",
-    institution: "Vasavi College of Engineering",
-    degree: "B.Tech in Computer Science",
-    year: "1st Year",
-    ticketId: "NV26-TCK-6291",
-    amountPaid: "₹250",
-    isPaid: true,
-  },
-  {
-    id: "usr-aat-07",
-    name: "Karthik Varma",
-    email: "karthik.v@griet.ac.in",
-    phoneno: "+91 98480 88234",
-    institution: "Gokaraju Rangaraju Institute of Engineering",
-    degree: "B.Tech in Electrical & Electronics",
-    year: "2nd Year",
-    ticketId: "NV26-TCK-7330",
-    amountPaid: "₹250",
-    isPaid: true,
-  },
-  {
-    id: "usr-aat-08",
-    name: "Zainab Fatima",
-    email: "zainab.f@islec.edu.in",
-    phoneno: "+91 98480 66109",
-    institution: "ISL Engineering College",
-    degree: "B.Tech in Civil Engineering",
-    year: "3rd Year",
-    ticketId: "NV26-TCK-8419",
-    amountPaid: "₹250",
-    isPaid: true,
-  },
-];
+interface RegisterUserApiItem {
+  _id: string;
+  full_name: string;
+  email: string;
+  phone_number: string;
+  city?: string;
+  state?: string;
+  institution: string;
+  year_of_study: string;
+  degree: string;
+  is_verified?: boolean;
+}
 
 interface AatangwadiModalProps {
   isOpen: boolean;
@@ -137,9 +53,73 @@ interface AatangwadiModalProps {
 }
 
 export default function AatangwadiModal({ isOpen, onClose }: AatangwadiModalProps) {
-  const [users] = useState<UnenrolledPaidUser[]>(INITIAL_UNENROLLED_PAID_USERS);
+  const router = useRouter();
+  const [users, setUsers] = useState<UnenrolledPaidUser[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Fetch users from /api/aatangwadi
+  const fetchUnenrolledUsers = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/aatangwadi", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+
+      const result = await response.json().catch(() => null);
+
+      // If backend returns redirect for unauthorized or unassigned session
+      if (result?.redirect && result?.redirectUrl && result?.error !== "No user data found") {
+        router.replace(result.redirectUrl);
+        return;
+      }
+
+      // If status is 403 with "No user data found", entryTickets was empty (0 users found)
+      if (response.status === 403 && result?.message === "No user data found") {
+        setUsers([]);
+        return;
+      }
+
+      if (!response.ok || !result || result.error) {
+        throw new Error(result?.message || result?.error || "Failed to fetch unenrolled paid attendees.");
+      }
+
+      const rawUsers: RegisterUserApiItem[] = result.data?.users || [];
+      const mappedUsers: UnenrolledPaidUser[] = rawUsers.map((u) => ({
+        id: u._id,
+        name: u.full_name || "Unknown",
+        email: u.email || "",
+        phoneno: u.phone_number || "",
+        institution: u.institution || "Institution N/A",
+        degree: u.degree || "Degree N/A",
+        year: u.year_of_study || "",
+        ticketId: u._id,
+        isPaid: true,
+      }));
+
+      setUsers(mappedUsers);
+    } catch (err) {
+      console.error("Error fetching Aatangwadi users:", err);
+      setError(err instanceof Error ? err.message : "Failed to load unenrolled attendees.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [router]);
+
+  // Fetch whenever modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchUnenrolledUsers();
+    } else {
+      setSearchQuery("");
+      setError(null);
+    }
+  }, [isOpen, fetchUnenrolledUsers]);
 
   // Escape key listener
   useEffect(() => {
@@ -222,9 +202,19 @@ export default function AatangwadiModal({ isOpen, onClose }: AatangwadiModalProp
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => fetchUnenrolledUsers()}
+              disabled={isLoading}
+              title="Refresh list"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-[#6B7280] hover:text-[#0A0F1E] hover:bg-black/5 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-[#E11D48]" : ""}`} />
+            </button>
+
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#E5E7EB] text-xs font-semibold text-[#0A0F1E] shadow-2xs">
               <Users className="w-3.5 h-3.5 text-[#E11D48]" />
-              <span>{filteredUsers.length} Users</span>
+              <span>{isLoading ? "Loading..." : `${filteredUsers.length} Users`}</span>
             </span>
 
             <button
@@ -267,7 +257,32 @@ export default function AatangwadiModal({ isOpen, onClose }: AatangwadiModalProp
         {/* 3. USER CARDS DIRECTORY LIST (SCROLLABLE)                */}
         {/* ======================================================== */}
         <div className="p-4 sm:p-5 overflow-y-auto flex-1 flex flex-col gap-3">
-          {filteredUsers.length > 0 ? (
+          {isLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center gap-3 text-center">
+              <Loader2 className="w-8 h-8 text-[#E11D48] animate-spin" />
+              <p className="text-xs text-[#6B7280] font-medium">
+                Fetching paid attendees without event enrollments...
+              </p>
+            </div>
+          ) : error ? (
+            <div className="py-16 flex flex-col items-center justify-center gap-3 text-center px-4">
+              <div className="w-12 h-12 rounded-full bg-[#FEF2F2] border border-[#FECDD3] flex items-center justify-center text-[#E11D48]">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-[#0A0F1E]">Unable to load attendees</h4>
+              <p className="text-xs text-[#6B7280] max-w-sm">{error}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fetchUnenrolledUsers()}
+                className="mt-2 text-xs rounded-xl cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Try Again</span>
+              </Button>
+            </div>
+          ) : filteredUsers.length > 0 ? (
             filteredUsers.map((user) => (
               <div
                 key={user.id}
@@ -340,21 +355,27 @@ export default function AatangwadiModal({ isOpen, onClose }: AatangwadiModalProp
             ))
           ) : (
             <div className="py-16 text-center flex flex-col items-center justify-center gap-2">
-              <div className="w-12 h-12 rounded-full bg-[#F3F4F6] border border-[#E5E7EB] flex items-center justify-center text-[#9CA3AF]">
-                <Users className="w-5 h-5" />
+              <div className="w-12 h-12 rounded-full bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-center text-[#16A34A]">
+                {searchQuery ? <Users className="w-5 h-5 text-[#9CA3AF]" /> : <CheckCircle2 className="w-6 h-6" />}
               </div>
-              <h3 className="text-sm font-bold text-[#0A0F1E]">No users found</h3>
+              <h3 className="text-sm font-bold text-[#0A0F1E]">
+                {searchQuery ? "No users found" : "No unenrolled attendees"}
+              </h3>
               <p className="text-xs text-[#6B7280] max-w-sm">
-                No users match your query &ldquo;{searchQuery}&rdquo;.
+                {searchQuery
+                  ? `No attendees match your query "${searchQuery}".`
+                  : "All paid ticket holders are currently registered for at least one festival event."}
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSearchQuery("")}
-                className="mt-2 text-xs rounded-xl cursor-pointer"
-              >
-                Clear Search
-              </Button>
+              {searchQuery && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSearchQuery("")}
+                  className="mt-2 text-xs rounded-xl cursor-pointer"
+                >
+                  Clear Search
+                </Button>
+              )}
             </div>
           )}
         </div>
