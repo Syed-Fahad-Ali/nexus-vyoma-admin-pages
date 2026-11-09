@@ -18,6 +18,8 @@ import {
   Tag,
   Copy,
   Check,
+  Ban,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -35,6 +37,7 @@ export interface ScannedAttendeeData {
     year_of_study: string;
     degree: string;
     is_verified: boolean;
+    isBanned?: boolean;
     createdAt?: string;
   };
   // Tab 2: Enrolled Events
@@ -135,8 +138,19 @@ export default function ScannedUserDetailsModal({
                 >
                   {attendee.user.full_name}
                 </h2>
-                {attendee.user.is_verified && (
+                {attendee.user.isBanned ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECDD3]">
+                    <Ban className="w-3 h-3 text-[#DC2626]" />
+                    Banned
+                  </span>
+                ) : (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#F0FDF4] text-[#15803D] border border-[#DCFCE7]">
+                    <CheckCircle2 className="w-3 h-3 text-[#16A34A]" />
+                    Active
+                  </span>
+                )}
+                {attendee.user.is_verified && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#F8FAFC] text-[#475569] border border-[#E2E8F0]">
                     <ShieldCheck className="w-3 h-3 text-[#16A34A]" />
                     Verified Attendee
                   </span>
@@ -217,6 +231,23 @@ export default function ScannedUserDetailsModal({
           {/* ---------------------------------------------------- */}
           {activeTab === "user" && (
             <div className="flex flex-col gap-4 animate-in fade-in duration-150">
+              {/* Banned Alert Warning Banner */}
+              {attendee.user.isBanned && (
+                <div className="p-3.5 rounded-xl bg-[#FEF2F2] border border-[#FECDD3] flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[#FEE2E2] flex items-center justify-center text-[#DC2626] shrink-0">
+                    <Ban className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-[#991B1B]">
+                      Attendee is Banned from Festival Entry
+                    </h4>
+                    <p className="text-[11px] text-[#B91C1C] mt-0.5">
+                      This user account has been banned. Entry pass is invalid and admission must be denied.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Personal Section */}
               <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB]/70 p-4 flex flex-col gap-3">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#9CA3AF]">
@@ -291,6 +322,21 @@ export default function ScannedUserDetailsModal({
                   <div>
                     <span className="text-[#6B7280] block text-[11px]">Year of Study</span>
                     <span className="font-semibold text-[#0A0F1E]">{attendee.user.year_of_study}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-[#6B7280] block text-[11px]">Ban Status</span>
+                    {attendee.user.isBanned ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#DC2626]">
+                        <Ban className="w-3 h-3 text-[#DC2626]" />
+                        <span>True (Banned)</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#16A34A]">
+                        <CheckCircle2 className="w-3 h-3 text-[#16A34A]" />
+                        <span>False (Active)</span>
+                      </span>
+                    )}
                   </div>
 
                   <div>

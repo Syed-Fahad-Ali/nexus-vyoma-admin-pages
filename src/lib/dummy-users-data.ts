@@ -10,6 +10,9 @@ export interface UserAttendee {
   teamName?: string;
   isCheckedIn?: boolean;
   checkedInAt?: string;
+  institution?: string;
+  degree?: string;
+  year_of_study?: string;
 }
 
 export const ALL_FESTIVAL_TEAMS = [

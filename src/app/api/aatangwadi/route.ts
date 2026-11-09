@@ -8,7 +8,6 @@ import EntryTicket from "@/database/schema/entry-ticket.schema";
 
 async function handleScanUser(request: NextRequest) {
     try {
-
         const { userId, sessionId } = await auth();
 
         if (!userId || !sessionId) {

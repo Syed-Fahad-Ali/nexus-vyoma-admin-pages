@@ -20,6 +20,7 @@ import {
   AlertCircle,
   Trophy,
   RefreshCw,
+  GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,7 +112,17 @@ export default function UsersListView() {
 
   // Copy contact details helper
   const handleCopyContact = (user: UserAttendee) => {
-    navigator.clipboard.writeText(`${user.name} | ${user.email} | ${user.phone}`);
+    const details = [
+      user.name,
+      user.email,
+      user.phone,
+      user.institution,
+      user.degree,
+      user.year_of_study ? `Year ${user.year_of_study}` : null,
+    ]
+      .filter(Boolean)
+      .join(" | ");
+    navigator.clipboard.writeText(details);
     setCopiedId(user.id);
     setTimeout(() => setCopiedId(null), 1800);
   };
@@ -125,6 +136,9 @@ export default function UsersListView() {
         user.name.toLowerCase().includes(q) ||
         user.email.toLowerCase().includes(q) ||
         user.phone.toLowerCase().includes(q) ||
+        (user.institution && user.institution.toLowerCase().includes(q)) ||
+        (user.degree && user.degree.toLowerCase().includes(q)) ||
+        (user.year_of_study && user.year_of_study.toLowerCase().includes(q)) ||
         (!isIndividual && user.teamName && user.teamName.toLowerCase().includes(q));
 
       let matchesStatus = true;
@@ -452,7 +466,7 @@ export default function UsersListView() {
                 key={user.id}
                 className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 px-5 lg:px-6 py-4 items-center hover:bg-[#F9FAFB] transition-colors"
               >
-                {/* Column 1: User Details (Avatar + Name + Email) — No team name badge */}
+                {/* Column 1: User Details (Avatar + Name + Email + Academic Info) */}
                 <div className="col-span-5 flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 rounded-full border border-[#D1D5DB] bg-[#F3F4F6] flex items-center justify-center shrink-0 font-bold text-xs text-[#0A0F1E]">
                     {getInitials(user.name)}
@@ -464,6 +478,29 @@ export default function UsersListView() {
                     <span className="text-xs text-[#6B7280] truncate font-mono mt-0.5">
                       {user.email}
                     </span>
+                    {(user.institution || user.degree || user.year_of_study) && (
+                      <div
+                        className="flex items-center gap-1.5 text-[11px] text-[#6B7280] truncate mt-1"
+                        title={[
+                          user.institution,
+                          user.degree,
+                          user.year_of_study ? `Year: ${user.year_of_study}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      >
+                        <GraduationCap className="w-3.5 h-3.5 text-[#9CA3AF] shrink-0" />
+                        <span className="truncate">
+                          {[
+                            user.institution,
+                            user.degree,
+                            user.year_of_study ? `Yr ${user.year_of_study}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -17,6 +17,7 @@ import {
   ShieldAlert,
   Loader2,
   RefreshCw,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -153,6 +154,41 @@ export default function AatangwadiModal({ isOpen, onClose }: AatangwadiModalProp
     }
   };
 
+  const exportUsersToCSV = () => {
+    const listToExport = filteredUsers.length > 0 ? filteredUsers : users;
+    if (listToExport.length === 0) return;
+
+    const headers = [
+      "Full Name",
+      "Email",
+      "Phone Number",
+      "Institution",
+      "Degree",
+      "Year",
+    ];
+
+    const rows = listToExport.map((u) => [
+      `"${(u.name || "").replace(/"/g, '""')}"`,
+      `"${(u.email || "").replace(/"/g, '""')}"`,
+      `"${(u.phoneno || "").replace(/"/g, '""')}"`,
+      `"${(u.institution || "").replace(/"/g, '""')}"`,
+      `"${(u.degree || "").replace(/"/g, '""')}"`,
+      `"${(u.year || "").replace(/"/g, '""')}"`,
+    ]);
+
+    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const dateStr = new Date().toISOString().split("T")[0];
+    link.setAttribute("download", `aatangwadi-unenrolled-users-${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const getInitials = (name: string) => {
     return (
       name
@@ -202,6 +238,18 @@ export default function AatangwadiModal({ isOpen, onClose }: AatangwadiModalProp
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <Button
+              type="button"
+              size="sm"
+              onClick={exportUsersToCSV}
+              disabled={isLoading || users.length === 0}
+              className="h-8 px-2.5 sm:px-3 rounded-lg bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] text-[#0A0F1E] text-xs font-semibold shadow-2xs transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              title="Export attendee records to CSV"
+            >
+              <Download className="w-3.5 h-3.5 text-[#E11D48]" />
+              <span className="hidden sm:inline">Export Data</span>
+            </Button>
+
             <button
               type="button"
               onClick={() => fetchUnenrolledUsers()}

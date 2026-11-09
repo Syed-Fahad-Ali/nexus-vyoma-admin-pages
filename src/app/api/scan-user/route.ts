@@ -76,26 +76,6 @@ async function handleScanUser(request: NextRequest) {
             }, { status: 403 });
         }
 
-        const rawAdminEmails = process.env.ADMIN_EMAILS;
-        let adminEmailsList: string[] = [];
-        try {
-            adminEmailsList = typeof rawAdminEmails === "string" ? JSON.parse(rawAdminEmails) : (rawAdminEmails || []);
-        } catch {
-            adminEmailsList = rawAdminEmails ? rawAdminEmails.split(",").map((e) => e.trim().replace(/^["']|["']$/g, "")) : [];
-        }
-
-        const isUserAdmin = Boolean(email && Array.isArray(adminEmailsList) && adminEmailsList.includes(email));
-
-        if (!isUserAdmin) {
-            return NextResponse.json({
-                message: "User is not an admin",
-                data: null,
-                error: "NOT_ADMIN",
-                redirect: false,
-                redirectUrl: null,
-            }, { status: 403 });
-        }
-
         const isObjectId = scanUserId && mongoose.isValidObjectId(scanUserId);
         let scanUser = isObjectId ? await RegisterUser.findById(scanUserId) : null;
 

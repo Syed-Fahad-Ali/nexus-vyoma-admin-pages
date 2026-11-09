@@ -25,6 +25,10 @@ import {
   QrCode,
   ShieldAlert,
   UserCog,
+  UserCheck,
+  Award,
+  ChevronDown,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
@@ -35,6 +39,16 @@ import { type ScannedMember, INITIAL_SCANNED_MEMBERS } from "@/lib/dummy-scan-da
 import ScannedUserDetailsModal, { type ScannedAttendeeData } from "./ScannedUserDetailsModal";
 import AatangwadiModal from "./AatangwadiModal";
 import ManageUsersModal from "./ManageUsersModal";
+import ManageVolunteersModal from "./ManageVolunteersModal";
+import ReferralVolunteerModal from "./ReferralVolunteerModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 
 // Helper to assign a minimal, strategic palette per track
 function getEventTheme(event: VolunteerEvent) {
@@ -107,6 +121,8 @@ export default function PermittedEventsView() {
   const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false);
   const [isAatangwadiModalOpen, setIsAatangwadiModalOpen] = useState(false);
   const [isManageUsersModalOpen, setIsManageUsersModalOpen] = useState(false);
+  const [isManageVolunteersModalOpen, setIsManageVolunteersModalOpen] = useState(false);
+  const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
   const [scannedAttendee, setScannedAttendee] = useState<ScannedAttendeeData | null>(null);
   const [recentScans, setRecentScans] = useState<ScannedMember[]>(INITIAL_SCANNED_MEMBERS.slice(0, 5));
   const [isScanningUser, setIsScanningUser] = useState(false);
@@ -211,6 +227,7 @@ export default function PermittedEventsView() {
           year_of_study: userDetails.year_of_study || "Undergraduate",
           degree: userDetails.degree || "B.Tech",
           is_verified: Boolean(userDetails.is_verified ?? true),
+          isBanned: Boolean(userDetails.isBanned === true),
           createdAt: registeredDate,
         },
         enrolledEvents: mappedEnrolled,
@@ -420,78 +437,130 @@ export default function PermittedEventsView() {
             </p>
           </div>
 
-          <div className="shrink-0 flex items-center gap-2.5 flex-wrap">
-            {/* Total Users Count Pill (Live Data from /api/total-user) */}
-            <div className="inline-flex items-center gap-2 text-xs font-semibold px-3.5 py-2 rounded-xl bg-white border border-[#E5E7EB] text-[#0A0F1E] shadow-2xs">
-              <Users className="w-4 h-4 text-[#FF6A00]" />
-              <span>
-                {totalUsersCount !== null
-                  ? `${totalUsersCount.toLocaleString()} Total Users`
-                  : isTotalUsersLoading
-                  ? "Loading..."
-                  : "0 Total Users"}
+          <div className="shrink-0 flex items-center gap-2 sm:gap-2.5 flex-wrap">
+            {/* Live Metrics Capsule (Grouped Muted Stats) */}
+            <div className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB] text-[#4B5563] shadow-2xs">
+              <span className="inline-flex items-center gap-1.5 text-[#0A0F1E]">
+                <Users className="w-3.5 h-3.5 text-[#FF6A00]" />
+                <span>
+                  {totalUsersCount !== null
+                    ? `${totalUsersCount.toLocaleString()} Users`
+                    : isTotalUsersLoading
+                    ? "Loading..."
+                    : "0 Users"}
+                </span>
+              </span>
+              <span className="text-[#D1D5DB]">·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-[#FF6A00]" />
+                <span>{events.length} {events.length === 1 ? "Event" : "Events"}</span>
               </span>
             </div>
 
-            {/* Events Active Pill */}
-            <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3.5 py-2 rounded-xl bg-white border border-[#E5E7EB] text-[#4B5563] shadow-2xs">
-              <Layers className="w-4 h-4 text-[#FF6A00]" />
-              <span>{events.length} {events.length === 1 ? "Event Active" : "Events Active"}</span>
-            </span>
+            {/* Scan QR Hero Action Button (Accessible to all volunteers & admins) */}
+            <button
+              onClick={() => setIsScanModalOpen(true)}
+              disabled={isScanningUser}
+              className="inline-flex items-center gap-2 h-9 px-3.5 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-xs transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60"
+            >
+              {isScanningUser ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#FF6A00]" />
+              ) : (
+                <QrCode className="w-3.5 h-3.5 text-[#FF6A00]" />
+              )}
+              <span>{isScanningUser ? "Verifying..." : "Scan QR"}</span>
+            </button>
 
-            {/* Scan QR Action Button (Admin Only) */}
+            {/* Admin Management Tools Dropdown (Admin Only) */}
             {isAdmin && (
-              <button
-                onClick={() => setIsScanModalOpen(true)}
-                disabled={isScanningUser}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer disabled:opacity-60"
-              >
-                {isScanningUser ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-[#FF6A00]" />
-                ) : (
-                  <QrCode className="w-4 h-4 text-[#FF6A00]" />
-                )}
-                <span>{isScanningUser ? "Verifying..." : "Scan QR"}</span>
-              </button>
-            )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 h-9 px-3.5 rounded-xl bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] text-[#0A0F1E] text-xs font-semibold shadow-2xs transition-all active:scale-[0.98] cursor-pointer focus:outline-none"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-[#FF6A00]" />
+                    <span>Admin Tools</span>
+                    <ChevronDown className="w-3 h-3 text-[#9CA3AF] -ml-0.5" />
+                  </button>
+                </DropdownMenuTrigger>
 
-            {/* Send Email Action Button (Admin Only) */}
-            {isAdmin && (
-              <button
-                onClick={() => {
-                  setIsEmailModalOpen(true);
-                  setEmailStatus("idle");
-                  setEmailErrorMessage("");
-                }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] text-[#0A0F1E] text-xs font-semibold shadow-2xs transition-all active:scale-[0.98] cursor-pointer"
-              >
-                <Mail className="w-4 h-4 text-[#FF6A00]" />
-                <span>Send Email</span>
-              </button>
-            )}
+                <DropdownMenuContent
+                  align="end"
+                  className="w-60 p-1.5 rounded-xl border border-[#E5E7EB] bg-white shadow-lg text-xs"
+                >
+                  <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
+                    Communications &amp; Passes
+                  </DropdownMenuLabel>
 
-            {/* Aatangwadi Action Button (Admin Only) */}
-            {isAdmin && (
-              <button
-                onClick={() => setIsAatangwadiModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#FFF1F2] border border-[#FECDD3] text-[#E11D48] text-xs font-semibold shadow-2xs transition-all active:scale-[0.98] cursor-pointer"
-                title="Users who does not enroll any event but paid"
-              >
-                <ShieldAlert className="w-4 h-4 text-[#E11D48]" />
-                <span>Aatangwadi</span>
-              </button>
-            )}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setIsEmailModalOpen(true);
+                      setEmailStatus("idle");
+                      setEmailErrorMessage("");
+                    }}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-[#F3F4F6] text-[#0A0F1E] font-medium"
+                  >
+                    <Mail className="w-4 h-4 text-[#FF6A00] shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-xs">Send Email</span>
+                      <span className="text-[10px] text-[#6B7280]">Send QR pass to attendee</span>
+                    </div>
+                  </DropdownMenuItem>
 
-            {/* Manage Users Action Button (Admin Only) */}
-            {isAdmin && (
-              <button
-                onClick={() => setIsManageUsersModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] text-[#0A0F1E] text-xs font-semibold shadow-2xs transition-all active:scale-[0.98] cursor-pointer"
-                title="Manage festival users (Ban/Unban)"
-              >
-                <UserCog className="w-4 h-4 text-[#4F46E5]" />
-                <span>Manage Users</span>
-              </button>
+                  <DropdownMenuItem
+                    onClick={() => setIsAatangwadiModalOpen(true)}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-[#FFF1F2] text-[#E11D48] font-medium"
+                  >
+                    <ShieldAlert className="w-4 h-4 text-[#E11D48] shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-xs">Aatangwadi</span>
+                      <span className="text-[10px] text-[#BE123C]">Users with 0 enrolled events</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator className="my-1 border-t border-[#F3F4F6]" />
+
+                  <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
+                    Management Tools
+                  </DropdownMenuLabel>
+
+                  <DropdownMenuItem
+                    onClick={() => setIsManageUsersModalOpen(true)}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-[#F3F4F6] text-[#0A0F1E] font-medium"
+                  >
+                    <UserCog className="w-4 h-4 text-[#4F46E5] shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-xs">Manage Users</span>
+                      <span className="text-[10px] text-[#6B7280]">Ban or unban attendees</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem
+                    onClick={() => setIsManageVolunteersModalOpen(true)}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-[#F3F4F6] text-[#0A0F1E] font-medium"
+                  >
+                    <UserCheck className="w-4 h-4 text-[#FF6A00] shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-xs">Manage Volunteers</span>
+                      <span className="text-[10px] text-[#6B7280]">Duty tracks &amp; assignments</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator className="my-1 border-t border-[#F3F4F6]" />
+
+                  <DropdownMenuItem
+                    onClick={() => setIsReferralModalOpen(true)}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-[#F3F4F6] text-[#0A0F1E] font-medium"
+                  >
+                    <Award className="w-4 h-4 text-[#FF6A00] shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-xs">Referral Volunteer</span>
+                      <span className="text-[10px] text-[#6B7280]">Verify 3 referral credits</span>
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
         </div>
@@ -933,6 +1002,19 @@ export default function PermittedEventsView() {
       <ManageUsersModal
         isOpen={isManageUsersModalOpen}
         onClose={() => setIsManageUsersModalOpen(false)}
+      />
+
+      {/* Manage Volunteers Modal */}
+      <ManageVolunteersModal
+        isOpen={isManageVolunteersModalOpen}
+        onClose={() => setIsManageVolunteersModalOpen(false)}
+        availableEvents={events.length > 0 ? events.map((e) => e.name) : undefined}
+      />
+
+      {/* Referral Volunteer Modal */}
+      <ReferralVolunteerModal
+        isOpen={isReferralModalOpen}
+        onClose={() => setIsReferralModalOpen(false)}
       />
     </div>
   );
