@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   X,
   Mail,
@@ -26,6 +27,7 @@ export default function ReferralVolunteerModal({
   isOpen,
   onClose,
 }: ReferralVolunteerModalProps) {
+  const router = useRouter();
   const [volunteerEmail, setVolunteerEmail] = useState("");
   const [referral1, setReferral1] = useState("");
   const [referral2, setReferral2] = useState("");
@@ -33,6 +35,7 @@ export default function ReferralVolunteerModal({
 
   const [isChecking, setIsChecking] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Escape key listener
@@ -59,21 +62,14 @@ export default function ReferralVolunteerModal({
     setError(null);
     setIsChecking(false);
     setIsSuccess(false);
-  };
-
-  const fillSampleData = () => {
-    setVolunteerEmail("imran.s@islec.edu.in");
-    setReferral1("arbaaz.m@islec.edu.in");
-    setReferral2("sneha.reddy@cbit.ac.in");
-    setReferral3("rehan.ahmed@mjcet.ac.in");
-    setError(null);
+    setSuccessMessage(null);
   };
 
   const validateEmail = (email: string) => {
     return email.trim().includes("@") && email.trim().includes(".");
   };
 
-  const handleCheckReferrals = (e: React.FormEvent) => {
+  const handleCheckReferrals = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
@@ -116,11 +112,48 @@ export default function ReferralVolunteerModal({
 
     setIsChecking(true);
 
-    // Simulate verification
-    setTimeout(() => {
-      setIsChecking(false);
+    try {
+      const res = await fetch("/api/referal-volunteer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          volunteerEmail: vEmail,
+          first_email: r1,
+          second_email: r2,
+          third_email: r3,
+        }),
+      });
+
+      const result = await res.json().catch(() => null);
+
+      if (result?.redirect && result?.redirectUrl) {
+        router.replace(result.redirectUrl);
+        return;
+      }
+
+      if (!res.ok || !result || result.error) {
+        const errorMsg =
+          result?.message ||
+          result?.error ||
+          `Failed to process referral milestone (HTTP ${res.status})`;
+        setError(errorMsg);
+        return;
+      }
+
+      setSuccessMessage(result?.message || "Referral awards processed successfully!");
       setIsSuccess(true);
-    }, 700);
+    } catch (err) {
+      console.error("Error submitting referral milestone:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected network error occurred. Please try again."
+      );
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -187,7 +220,7 @@ export default function ReferralVolunteerModal({
                       Referral Milestone Verified!
                     </h3>
                     <p className="text-xs text-[#15803D]">
-                      All 3 referred attendee accounts are valid and ticket-confirmed.
+                      {successMessage || "All 3 referred attendee accounts are valid and ticket-confirmed, and referral awards were granted."}
                     </p>
                   </div>
                 </div>
@@ -201,7 +234,7 @@ export default function ReferralVolunteerModal({
                   </span>
                   <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#DCFCE7] text-[#16A34A]">
                     <ShieldCheck className="w-3 h-3" />
-                    <span>Eligible for Milestone</span>
+                    <span>Awards Enrolled</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-sm font-bold text-[#0A0F1E]">
@@ -248,7 +281,7 @@ export default function ReferralVolunteerModal({
                   className="flex-1 h-9 rounded-xl text-xs font-semibold cursor-pointer"
                 >
                   <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                  <span>Check Another</span>
+                  <span>Process Another</span>
                 </Button>
                 <Button
                   type="button"
@@ -267,14 +300,9 @@ export default function ReferralVolunteerModal({
                 <span className="text-xs font-semibold text-[#374151]">
                   Enter volunteer &amp; referral emails
                 </span>
-                <button
-                  type="button"
-                  onClick={fillSampleData}
-                  className="text-xs text-[#FF6A00] hover:text-[#E55F00] font-semibold underline cursor-pointer flex items-center gap-1"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span>Fill Sample Data</span>
-                </button>
+                <span className="text-[11px] text-[#6B7280]">
+                  Must have paid festival entry tickets
+                </span>
               </div>
 
               {/* Volunteer Email Input */}
@@ -293,10 +321,11 @@ export default function ReferralVolunteerModal({
                   <Input
                     id="volunteer-email-input"
                     type="email"
-                    placeholder="e.g. volunteer@islec.edu.in"
+                    disabled={isChecking}
+                    placeholder="e.g. volunteer@example.com"
                     value={volunteerEmail}
                     onChange={(e) => {
-                      setVolunteerEmail(e.target.value);
+                      setVolunteerEmail(e.target.value.toLowerCase());
                       if (error) setError(null);
                     }}
                     className="pl-9 h-10 bg-[#F9FAFB] border-[#E5E7EB] rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-[#FF6A00]"
@@ -326,10 +355,11 @@ export default function ReferralVolunteerModal({
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9CA3AF]" />
                     <Input
                       type="email"
+                      disabled={isChecking}
                       placeholder="attendee.one@example.com"
                       value={referral1}
                       onChange={(e) => {
-                        setReferral1(e.target.value);
+                        setReferral1(e.target.value.toLowerCase());
                         if (error) setError(null);
                       }}
                       className="pl-8.5 h-9 bg-white border-[#E5E7EB] rounded-xl text-xs focus-visible:ring-1 focus-visible:ring-[#FF6A00]"
@@ -346,10 +376,11 @@ export default function ReferralVolunteerModal({
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9CA3AF]" />
                     <Input
                       type="email"
+                      disabled={isChecking}
                       placeholder="attendee.two@example.com"
                       value={referral2}
                       onChange={(e) => {
-                        setReferral2(e.target.value);
+                        setReferral2(e.target.value.toLowerCase());
                         if (error) setError(null);
                       }}
                       className="pl-8.5 h-9 bg-white border-[#E5E7EB] rounded-xl text-xs focus-visible:ring-1 focus-visible:ring-[#FF6A00]"
@@ -366,10 +397,11 @@ export default function ReferralVolunteerModal({
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#9CA3AF]" />
                     <Input
                       type="email"
+                      disabled={isChecking}
                       placeholder="attendee.three@example.com"
                       value={referral3}
                       onChange={(e) => {
-                        setReferral3(e.target.value);
+                        setReferral3(e.target.value.toLowerCase());
                         if (error) setError(null);
                       }}
                       className="pl-8.5 h-9 bg-white border-[#E5E7EB] rounded-xl text-xs focus-visible:ring-1 focus-visible:ring-[#FF6A00]"
@@ -395,12 +427,12 @@ export default function ReferralVolunteerModal({
                 {isChecking ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Checking Referrals...</span>
+                    <span>Processing Referrals...</span>
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5">
                     <Award className="w-4 h-4" />
-                    <span>Check Referrals</span>
+                    <span>Verify &amp; Process Referrals</span>
                   </span>
                 )}
               </Button>
