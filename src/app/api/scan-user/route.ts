@@ -6,6 +6,7 @@ import EventEntry from "@/database/schema/event-entry.schema";
 import EventTeamMember from "@/database/schema/event-team-member.schema";
 import Event from "@/database/schema/event.schema";
 import RegisterUser from "@/database/schema/register-user.schema";
+import EntryTicket from "@/database/schema/entry-ticket.schema";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { NextResponse, NextRequest } from "next/server";
 
@@ -123,10 +124,20 @@ async function handleScanUser(request: NextRequest) {
             .populate("event_id")
             .populate("attender");
 
+        const entryTicket = await EntryTicket.findOne({ userId: scanUser._id });
+        const isPaid = Boolean(entryTicket?.isPaid === true);
+        const isBanned = Boolean(entryTicket?.isBanned || scanUser.isBanned);
+
         return NextResponse.json({
             message: "User data fetched successfully",
             data: {
-                userDetails: scanUser,
+                userDetails: {
+                    ...scanUser.toObject(),
+                    isBanned,
+                    isPaid,
+                },
+                isPaid,
+                entryTicket,
                 enrolledEvents: allEnrolledEvents,
                 checkedInEvents: checkedInEvents
             },

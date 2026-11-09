@@ -38,6 +38,7 @@ export interface ScannedAttendeeData {
     degree: string;
     is_verified: boolean;
     isBanned?: boolean;
+    isPaid?: boolean;
     createdAt?: string;
   };
   // Tab 2: Enrolled Events
@@ -138,6 +139,17 @@ export default function ScannedUserDetailsModal({
                 >
                   {attendee.user.full_name}
                 </h2>
+                {attendee.user.isPaid ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]">
+                    <CheckCircle2 className="w-3 h-3 text-[#16A34A]" />
+                    Paid Pass
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECDD3]">
+                    <AlertTriangle className="w-3 h-3 text-[#DC2626]" />
+                    Unpaid Pass
+                  </span>
+                )}
                 {attendee.user.isBanned ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECDD3]">
                     <Ban className="w-3 h-3 text-[#DC2626]" />
@@ -322,6 +334,21 @@ export default function ScannedUserDetailsModal({
                   <div>
                     <span className="text-[#6B7280] block text-[11px]">Year of Study</span>
                     <span className="font-semibold text-[#0A0F1E]">{attendee.user.year_of_study}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-[#6B7280] block text-[11px]">Entry Ticket (isPaid)</span>
+                    {attendee.user.isPaid ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#16A34A]">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A]" />
+                        <span>True (Paid)</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#DC2626]">
+                        <AlertTriangle className="w-3.5 h-3.5 text-[#DC2626]" />
+                        <span>False (Unpaid / No Ticket)</span>
+                      </span>
+                    )}
                   </div>
 
                   <div>

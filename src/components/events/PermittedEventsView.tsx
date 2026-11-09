@@ -29,6 +29,7 @@ import {
   Award,
   ChevronDown,
   SlidersHorizontal,
+  Search,
 } from "lucide-react";
 import { useClerk, useUser } from "@clerk/nextjs";
 import NexusVyomaLogo from "@/components/brand/NexusVyomaLogo";
@@ -41,6 +42,7 @@ import AatangwadiModal from "./AatangwadiModal";
 import ManageUsersModal from "./ManageUsersModal";
 import ManageVolunteersModal from "./ManageVolunteersModal";
 import ReferralVolunteerModal from "./ReferralVolunteerModal";
+import SearchUserModal from "./SearchUserModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -123,6 +125,7 @@ export default function PermittedEventsView() {
   const [isManageUsersModalOpen, setIsManageUsersModalOpen] = useState(false);
   const [isManageVolunteersModalOpen, setIsManageVolunteersModalOpen] = useState(false);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
+  const [isSearchUserModalOpen, setIsSearchUserModalOpen] = useState(false);
   const [scannedAttendee, setScannedAttendee] = useState<ScannedAttendeeData | null>(null);
   const [recentScans, setRecentScans] = useState<ScannedMember[]>(INITIAL_SCANNED_MEMBERS.slice(0, 5));
   const [isScanningUser, setIsScanningUser] = useState(false);
@@ -228,6 +231,7 @@ export default function PermittedEventsView() {
           degree: userDetails.degree || "B.Tech",
           is_verified: Boolean(userDetails.is_verified ?? true),
           isBanned: Boolean(userDetails.isBanned === true),
+          isPaid: Boolean(result.data?.isPaid ?? userDetails.isPaid ?? false),
           createdAt: registeredDate,
         },
         enrolledEvents: mappedEnrolled,
@@ -524,6 +528,17 @@ export default function PermittedEventsView() {
                   <DropdownMenuLabel className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#9CA3AF]">
                     Management Tools
                   </DropdownMenuLabel>
+
+                  <DropdownMenuItem
+                    onClick={() => setIsSearchUserModalOpen(true)}
+                    className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-[#F3F4F6] text-[#0A0F1E] font-medium"
+                  >
+                    <Search className="w-4 h-4 text-[#2563EB] shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-xs">Search User by Email</span>
+                      <span className="text-[10px] text-[#6B7280]">Inspect registration &amp; ticket</span>
+                    </div>
+                  </DropdownMenuItem>
 
                   <DropdownMenuItem
                     onClick={() => setIsManageUsersModalOpen(true)}
@@ -1015,6 +1030,16 @@ export default function PermittedEventsView() {
       <ReferralVolunteerModal
         isOpen={isReferralModalOpen}
         onClose={() => setIsReferralModalOpen(false)}
+      />
+
+      {/* Search User by Email Modal */}
+      <SearchUserModal
+        isOpen={isSearchUserModalOpen}
+        onClose={() => setIsSearchUserModalOpen(false)}
+        onUserFound={(attendee) => {
+          setScannedAttendee(attendee);
+          setIsUserDetailsModalOpen(true);
+        }}
       />
     </div>
   );
