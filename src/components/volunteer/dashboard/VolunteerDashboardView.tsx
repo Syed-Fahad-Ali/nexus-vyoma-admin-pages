@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  QrCode,
   CheckCircle2,
   Clock,
   AlertTriangle,
@@ -18,8 +17,6 @@ import { useVolunteerEvent } from "../context/VolunteerEventContext";
 import { volunteerService, VolunteerApiError } from "@/services/volunteerService";
 import { EventStats } from "@/services/types/volunteer";
 import EchartsParticipantAreaChart from "./EchartsParticipantAreaChart";
-import ScanModal from "../scan/ScanModal";
-import { ScannedMember } from "@/lib/dummy-scan-data";
 
 export default function VolunteerDashboardView() {
   const router = useRouter();
@@ -34,8 +31,6 @@ export default function VolunteerDashboardView() {
     redirectUrl?: string | null;
   } | null>(null);
   const [activeChartTab, setActiveChartTab] = useState<"CHECKED_IN" | "PENDING" | "TOTAL">("CHECKED_IN");
-  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
-  const [recentScans, setRecentScans] = useState<ScannedMember[]>([]);
   const [actionMessage, setActionMessage] = useState<{ text: string; isError?: boolean } | null>(null);
 
   const loadAnalytics = async () => {
@@ -78,13 +73,6 @@ export default function VolunteerDashboardView() {
   useEffect(() => {
     loadAnalytics();
   }, [selectedEventId]);
-
-  // QR Scan Callback
-  const handleScanSuccess = async (member: ScannedMember) => {
-    setRecentScans((prev) => [member, ...prev.slice(0, 7)]);
-    setActionMessage({ text: `QR Verified: ${member.name}`, isError: false });
-    setTimeout(() => setActionMessage(null), 3000);
-  };
 
   if (isLoading) {
     return (
@@ -181,16 +169,6 @@ export default function VolunteerDashboardView() {
         <h1 className="text-xl sm:text-2xl font-bold text-[#0A0F1E] tracking-tight truncate">
           {selectedEvent.name}
         </h1>
-
-        <div className="flex items-center shrink-0">
-          <Button
-            onClick={() => setIsScanModalOpen(true)}
-            className="w-full sm:w-auto h-11 px-5 rounded-xl bg-[#0A0F1E] hover:bg-[#1E293B] text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2.5 shadow-sm active:scale-[0.98] cursor-pointer"
-          >
-            <QrCode className="w-4 h-4 text-[#FF6A00]" />
-            <span>Scan QR Pass</span>
-          </Button>
-        </div>
       </div>
 
       {/* ============================================================ */}
@@ -351,15 +329,6 @@ export default function VolunteerDashboardView() {
           </div>
         </div>
       </div>
-
-      {/* QR Camera Scanner Modal */}
-      <ScanModal
-        isOpen={isScanModalOpen}
-        onClose={() => setIsScanModalOpen(false)}
-        onScanSuccess={handleScanSuccess}
-        recentScans={recentScans}
-        currentVolunteer="YOUR_NAME"
-      />
     </div>
   );
 }

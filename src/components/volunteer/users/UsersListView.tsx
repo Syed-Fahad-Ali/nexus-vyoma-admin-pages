@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Users,
@@ -13,7 +12,6 @@ import {
   X,
   ChevronDown,
   MoreVertical,
-  QrCode,
   UserCheck,
   Copy,
   Check,
@@ -563,18 +561,6 @@ export default function UsersListView() {
                       <DropdownMenuLabel className="text-[11px] font-semibold text-[#9CA3AF] uppercase px-2 py-1">
                         Attendee Actions
                       </DropdownMenuLabel>
-
-                      <DropdownMenuItem
-                        asChild
-                        className="flex items-center gap-2 px-2.5 py-2 text-xs font-medium text-[#2563EB] hover:bg-[#EFF6FF] focus:bg-[#EFF6FF] rounded-lg cursor-pointer"
-                      >
-                        <Link href="/volunteer/scan" className="flex items-center gap-2 w-full">
-                          <QrCode className="w-3.5 h-3.5 shrink-0 text-[#2563EB]" />
-                          <span>Scan Ticket to Check-in</span>
-                        </Link>
-                      </DropdownMenuItem>
-
-                      <DropdownMenuSeparator className="my-1 bg-[#E5E7EB]" />
 
                       {/* Copy Contact Info Action */}
                       <DropdownMenuItem
